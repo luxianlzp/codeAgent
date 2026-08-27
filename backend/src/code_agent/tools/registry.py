@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from typing import Any
 
-from code_agent.core.config import AgentConfig
 from code_agent.tools.base import Tool, ToolResult
 from code_agent.tools.filesystem import ListFilesTool, ReadFileTool, WriteFileTool
 from code_agent.tools.shell import RunCommandTool
 from code_agent.workspace import Workspace
+
+if TYPE_CHECKING:
+    from code_agent.core.config import AgentConfig
 
 
 class ToolRegistry:

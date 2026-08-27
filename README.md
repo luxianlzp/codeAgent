@@ -68,6 +68,18 @@ code-agent --interactive --workspace ../examples/demo_workspace
 code-agent --json-trace --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
 ```
 
+如果想保存完整运行日志：
+
+```powershell
+code-agent --trace-file traces/run.json --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
+```
+
+默认输出会隐藏较长的模型原文和工具细节。如果需要展开 diff、命令输出等完整信息：
+
+```powershell
+code-agent --verbose --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
+```
+
 如果不想安装本地包，也可以临时设置 `PYTHONPATH` 后运行模块：
 
 ```powershell
@@ -87,3 +99,10 @@ PYTHONPATH=src python -m code_agent.cli --workspace ../examples/demo_workspace "
 cd backend
 python -m pytest
 ```
+
+## CLI 安全与日志
+
+- `run_command` 会拦截明显危险的命令，例如 `rm`、`del`、`format`、`shutdown`、`git reset`、`git clean`、PowerShell `Remove-Item` 等。
+- `write_file` 会在 trace 中记录 unified diff，便于 CLI 展示和后续 Web GUI 展示文件变更。
+- `--trace-file` 会保存完整结构化 JSON，适合调试、录制视频和后续前端复用。
+- `--verbose` 会显示完整模型响应和工具输出；默认模式只显示摘要。

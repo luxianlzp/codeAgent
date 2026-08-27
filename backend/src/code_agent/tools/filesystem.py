@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 from typing import Any
 
 from code_agent.tools.base import ToolResult
@@ -56,6 +57,31 @@ class WriteFileTool:
         if "content" not in args:
             return ToolResult(False, "Missing required argument: content")
         path = self._workspace.resolve(args["path"])
+        relative_path = str(path.relative_to(self._workspace.root))
+        new_content = str(args["content"])
+        old_content = path.read_text(encoding="utf-8") if path.exists() else None
+        diff = _build_diff(relative_path, old_content, new_content)
+
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(str(args["content"]), encoding="utf-8")
-        return ToolResult(True, f"Wrote {path.relative_to(self._workspace.root)}")
+        path.write_text(new_content, encoding="utf-8")
+
+        action = "Created" if old_content is None else "Updated"
+        changed = old_content != new_content
+        return ToolResult(
+            True,
+            f"{action} {relative_path}",
+            {
+                "path": relative_path,
+                "created": old_content is None,
+                "changed": changed,
+                "diff": diff,
+            },
+        )
+
+
+def _build_diff(path: str, old_content: str | None, new_content: str) -> str:
+    old_lines = [] if old_content is None else old_content.splitlines(keepends=True)
+    new_lines = new_content.splitlines(keepends=True)
+    fromfile = "/dev/null" if old_content is None else f"a/{path}"
+    tofile = f"b/{path}"
+    return "".join(difflib.unified_diff(old_lines, new_lines, fromfile=fromfile, tofile=tofile))
