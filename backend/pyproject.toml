@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "openai>=1.0.0",
+    "PySide6-Essentials>=6.7.0",
     "python-dotenv>=1.0.0",
 ]
 
@@ -20,6 +21,7 @@ dev = [
 
 [project.scripts]
 code-agent = "code_agent.cli:main"
+code-agent-gui = "code_agent.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

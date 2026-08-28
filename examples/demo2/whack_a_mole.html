@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打地鼠游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .info {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+        .info span {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+        .game-container {
+            display: grid;
+            grid-template-columns: repeat(3, 120px);
+            grid-template-rows: repeat(3, 120px);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .hole {
+            width: 120px;
+            height: 120px;
+            background: #5d4037;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        .mole {
+            width: 80px;
+            height: 80px;
+            background: #8d6e63;
+            border-radius: 50%;
+            position: absolute;
+            bottom: -100%;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+        .mole::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 12px;
+            height: 12px;
+            background: #333;
+            border-radius: 50%;
+            box-shadow: 28px 0 0 #333;
+        }
+        .mole::after {
+            content: '';
+            position: absolute;
+            top: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 10px;
+            background: #333;
+            border-radius: 0 0 10px 10px;
+        }
+        .mole.up {
+            bottom: 10px;
+        }
+        .mole.hit {
+            background: #e53935;
+            transition: background 0.1s;
+        }
+        .btn {
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 30px;
+            background: #ffca28;
+            color: #333;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 15px;
+            font-size: 1.1rem;
+            min-height: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔨 打地鼠</h1>
+    <div class="info">
+        <span>得分: <strong id="score">0</strong></span>
+        <span>时间: <strong id="time">30</strong>秒</span>
+    </div>
+    <div class="game-container" id="game">
+        <div class="hole" data-index="0"><div class="mole"></div></div>
+        <div class="hole" data-index="1"><div class="mole"></div></div>
+        <div class="hole" data-index="2"><div class="mole"></div></div>
+        <div class="hole" data-index="3"><div class="mole"></div></div>
+        <div class="hole" data-index="4"><div class="mole"></div></div>
+        <div class="hole" data-index="5"><div class="mole"></div></div>
+        <div class="hole" data-index="6"><div class="mole"></div></div>
+        <div class="hole" data-index="7"><div class="mole"></div></div>
+        <div class="hole" data-index="8"><div class="mole"></div></div>
+    </div>
+    <button class="btn" id="startBtn" onclick="startGame()">开始游戏</button>
+    <div class="message" id="message">点击"开始游戏"开始打地鼠！</div>
+
+    <script>
+        const holes = document.querySelectorAll('.hole');
+        const moles = document.querySelectorAll('.mole');
+        const scoreEl = document.getElementById('score');
+        const timeEl = document.getElementById('time');
+        const startBtn = document.getElementById('startBtn');
+        const messageEl = document.getElementById('message');
+
+        let score = 0;
+        let timeLeft = 30;
+        let gameActive = false;
+        let moleTimer = null;
+        let countdownTimer = null;
+        let currentMole = null;
+
+        function randomTime(min, max) {
+            return Math.round(Math.random() * (max - min) + min);
+        }
+
+        function randomHole() {
+            const index = Math.floor(Math.random() * holes.length);
+            const mole = moles[index];
+            if (mole === currentMole) {
+                return randomHole();
+            }
+            return mole;
+        }
+
+        function peep() {
+            const time = randomTime(600, 1200);
+            const mole = randomHole();
+            currentMole = mole;
+            mole.classList.add('up');
+            mole.classList.remove('hit');
+
+            moleTimer = setTimeout(() => {
+                mole.classList.remove('up');
+                if (gameActive) peep();
+            }, time);
+        }
+
+        function bonk(e) {
+            if (!e.isTrusted) return;
+            const mole = this.querySelector('.mole');
+            if (!mole.classList.contains('up') || mole.classList.contains('hit')) return;
+
+            score++;
+            mole.classList.remove('up');
+            mole.classList.add('hit');
+            scoreEl.textContent = score;
+            messageEl.textContent = '打中了！+';
+        }
+
+        holes.forEach(hole => hole.addEventListener('click', bonk));
+
+        function startGame() {
+            score = 0;
+            timeLeft = 30;
+            gameActive = true;
+            scoreEl.textContent = score;
+            timeEl.textContent = timeLeft;
+            startBtn.disabled = true;
+            startBtn.textContent = '游戏进行中...';
+            messageEl.textContent = '快打地鼠！';
+
+            peep();
+
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                timeEl.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(countdownTimer);
+            clearTimeout(moleTimer);
+            moles.forEach(mole => mole.classList.remove('up'));
+            startBtn.disabled = false;
+            startBtn.textContent = '再玩一次';
+            messageEl.textContent = `游戏结束！你得了 ${score} 分！`;
+        }
+    </script>
+</body>
+</html>

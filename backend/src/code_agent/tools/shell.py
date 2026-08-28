@@ -35,6 +35,7 @@ class RunCommandTool:
                 cwd=self._workspace.root,
                 shell=True,
                 text=True,
+                errors="replace",
                 capture_output=True,
                 timeout=self._timeout_seconds,
             )

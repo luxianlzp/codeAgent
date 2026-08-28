@@ -27,6 +27,11 @@ def test_filesystem_tools_read_and_write(tmp_path) -> None:
     assert write_result.data["created"] is True
     assert "+hi" in write_result.data["diff"]
 
+    list_result = registry.run("list_files", {"path": "."})
+    assert list_result.ok is True
+    assert list_result.data is not None
+    assert list_result.data["count"] == 1
+
 
 def test_write_file_diff_for_existing_file(tmp_path) -> None:
     registry = build_default_registry(Workspace(tmp_path), AgentConfig())
@@ -50,3 +55,12 @@ def test_run_command_blocks_dangerous_command(tmp_path) -> None:
     assert "Blocked dangerous command" in result.output
     assert result.data is not None
     assert result.data["blocked"] is True
+
+
+def test_run_command_replaces_decode_errors(tmp_path) -> None:
+    registry = build_default_registry(Workspace(tmp_path), AgentConfig())
+
+    result = registry.run("run_command", {"command": "python -c \"import sys; sys.stdout.buffer.write(b'\\xad')\""})
+
+    assert result.data is not None
+    assert result.data["exit_code"] == 0

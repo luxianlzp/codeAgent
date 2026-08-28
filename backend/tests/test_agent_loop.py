@@ -35,6 +35,7 @@ def test_agent_runs_tool_loop_until_finish(tmp_path) -> None:
     assert result.status == "finished"
     assert "verified" in result.final_message
     assert result.events[-1].kind == "finish"
+    assert any(event.kind == "model_request" for event in result.events)
     assert any(event.kind == "tool_call" and event.message == "write_file" for event in result.events)
     assert any(event.kind == "tool_call" and event.message == "run_command" for event in result.events)
 

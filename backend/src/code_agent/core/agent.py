@@ -41,6 +41,7 @@ class Agent:
 
         for step in range(1, self._config.max_steps + 1):
             emit(TraceEvent("step", f"Step {step}", {"step": step}))
+            emit(TraceEvent("model_request", "Calling model", {"step": step}))
             raw_response = self._llm.complete(messages)
             emit(TraceEvent("model_response", raw_response))
             messages.append(Message("assistant", raw_response))

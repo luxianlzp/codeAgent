@@ -7,18 +7,16 @@
 项目支持两种入口：
 
 - CLI：优先实现，用来验证 agent 核心能力。
-- Web GUI：后续实现，采用前后端分离结构，用来更直观地展示对话、工具调用、命令输出和文件变更。
+- Windows GUI：后续实现，作为本地桌面客户端，用来更直观地展示对话、工具调用、命令输出和文件变更。
 
-核心要求是：CLI 和 Web GUI 共用同一套 agent 核心逻辑，GUI 只是交互层，不依赖现成 agent 产品或 agent 框架。
+核心要求是：CLI 和 Windows GUI 共用同一套 agent 核心逻辑，GUI 只是交互层，不依赖现成 agent 产品或 agent 框架。
 
 ## 总体架构
 
 ```text
 用户任务
   ↓
-CLI / Web Frontend
-  ↓
-Backend API
+CLI / Windows GUI Client
   ↓
 Agent Core
   ↓
@@ -60,7 +58,7 @@ Tool Registry
 
 ### 第二阶段：抽象 agent loop
 
-目标：把第一阶段的逻辑拆成清晰模块，方便 CLI 和 Web GUI 复用。
+目标：把第一阶段的逻辑拆成清晰模块，方便 CLI 和 Windows GUI 复用。
 
 需要拆出：
 
@@ -78,35 +76,39 @@ Tool Registry
 - 每一步工具调用都有结构化 trace 记录。
 - 测试可以绕过真实模型，使用 fake LLM 验证 agent loop。
 
-### 第三阶段：前后端分离 Web GUI
+### 第三阶段：Windows 桌面 GUI
 
-目标：构建一个前后端分离的本地 Web 图形界面。后端只提供 API 和 agent 执行能力，前端独立构建页面与交互，不把前端静态文件塞进 Python 包内部。
+目标：构建一个 Windows 本地桌面 GUI 客户端。GUI 直接复用 Python agent core，不通过 Web 前后端通信，也不把 agent 决策逻辑写进界面层。
 
 推荐布局：
 
 ```text
-左侧：任务输入、运行按钮、基础配置
-中间：对话历史、agent 执行过程
-右侧：工具调用时间线、命令输出、文件变更
-底部：最终结果和错误信息
+顶部：Code Agent、当前模型、运行状态
+左侧：项目侧边栏、workspace 选择、max steps、新对话
+右侧顶部：当前对话标题和运行状态
+右侧主区域：对话式 agent 事件流
+右侧底部：固定任务输入框和发送按钮
+消息详情：工具参数、命令输出、文件 diff、错误信息默认隐藏，点击 Details 展开
 ```
 
 需要实现：
 
-- Backend API 接收用户任务。
-- Backend API 调用 agent 核心。
-- Frontend 通过 HTTP 或 SSE/WebSocket 获取执行 trace。
-- 展示工具类型、参数、状态、输出摘要。
-- 展示最终回答。
-- 错误时给出清晰提示。
+- `code-agent-gui` 启动 Windows 桌面客户端。
+- GUI 主线程只负责界面展示和用户交互。
+- `AgentWorker` 后台线程运行 `Agent.run(task, on_event=...)`。
+- `TraceEvent` 通过 Qt signal 实时发送回主线程。
+- 支持选择 workspace 目录。
+- 支持输入任务、设置 max steps、点击 Run。
+- 以对话流展示工具类型、状态、输出摘要和最终回复。
+- 工具参数、stdout、stderr、diff 和错误信息默认隐藏，需要时展开查看。
+- 任务结束后展示最终回答。
 
 验收标准：
 
-- Web GUI 能完成和 CLI 相同的 demo 任务。
-- GUI 能实时或近实时展示 agent 的执行过程。
+- Windows GUI 能完成和 CLI 相同的 demo 任务。
+- GUI 能实时展示 agent 的执行过程。
+- GUI 运行时界面不冻结。
 - GUI 代码中不包含 agent 决策逻辑。
-- 前端项目可以独立启动和构建。
-- 后端 API 可以独立运行并被 CLI 之外的客户端调用。
 - 关闭 GUI 后，CLI 仍然可独立运行。
 
 ### 第四阶段：README 和视频准备
@@ -118,7 +120,7 @@ README.txt 需要包含：
 - Git 仓库地址。
 - API key 配置方式。
 - CLI 运行方式。
-- Web GUI 运行方式。
+- Windows GUI 运行方式。
 - 核心功能说明。
 - 设计亮点说明。
 - 安全限制说明。
@@ -126,7 +128,7 @@ README.txt 需要包含：
 视频建议结构：
 
 1. 简短展示项目结构和 README。
-2. 运行 CLI 或 Web GUI。
+2. 运行 CLI 或 Windows GUI。
 3. 输入一个真实编程任务。
 4. 展示 agent 自动读写文件、执行命令、处理错误或完成测试。
 5. 简要解释 agent loop、工具系统和安全边界。
@@ -148,12 +150,6 @@ code-agent/
 │  │     ├─ __init__.py
 │  │     ├─ cli.py
 │  │     │
-│  │     ├─ api/
-│  │     │  ├─ __init__.py
-│  │     │  ├─ app.py
-│  │     │  ├─ routes.py
-│  │     │  └─ schemas.py
-│  │     │
 │  │     ├─ core/
 │  │     │  ├─ __init__.py
 │  │     │  ├─ agent.py
@@ -174,36 +170,28 @@ code-agent/
 │  │     │  ├─ filesystem.py
 │  │     │  └─ shell.py
 │  │     │
-│  │     └─ workspace/
+│  │     ├─ workspace/
+│  │     │  ├─ __init__.py
+│  │     │  └─ sandbox.py
+│  │     │
+│  │     └─ gui/
 │  │        ├─ __init__.py
-│  │        └─ sandbox.py
+│  │        ├─ app.py
+│  │        ├─ main_window.py
+│  │        ├─ worker.py
+│  │        ├─ styles.py
+│  │        └─ widgets/
+│  │           ├─ __init__.py
+│  │           ├─ task_panel.py
+│  │           ├─ chat_panel.py
+│  │           ├─ trace_panel.py      # 旧版三栏 trace，可保留为备用
+│  │           └─ detail_panel.py     # 旧版详情面板，可保留为备用
 │  │
 │  └─ tests/
 │     ├─ test_agent_loop.py
-│     ├─ test_api_routes.py
+│     ├─ test_gui_worker.py
 │     ├─ test_tool_registry.py
 │     └─ test_workspace_sandbox.py
-│
-├─ frontend/
-│  ├─ package.json
-│  ├─ vite.config.ts
-│  ├─ index.html
-│  ├─ src/
-│  │  ├─ main.ts
-│  │  ├─ api/
-│  │  │  └─ client.ts
-│  │  ├─ components/
-│  │  │  ├─ ChatPanel.ts
-│  │  │  ├─ TaskInput.ts
-│  │  │  ├─ TraceTimeline.ts
-│  │  │  ├─ ToolCallView.ts
-│  │  │  └─ CommandOutput.ts
-│  │  ├─ styles/
-│  │  │  └─ main.css
-│  │  └─ types/
-│  │     └─ agent.ts
-│  └─ public/
-│     └─ favicon.svg
 │
 └─ examples/
    └─ demo_workspace/
@@ -299,53 +287,64 @@ error
 finish
 ```
 
-这些事件同时服务于 CLI 日志、Web GUI 展示和视频演示。
+这些事件同时服务于 CLI 日志、Windows GUI 展示和视频演示。
 
-### `api/app.py`
+### `gui/app.py`
 
-负责创建 Web 后端应用。
+负责创建 Windows GUI 应用入口。
 
 职责：
 
-- 初始化 FastAPI 应用。
-- 注册 API 路由。
-- 配置跨域访问，允许本地前端开发服务器调用。
-- 不托管前端页面，只提供 JSON/流式 API。
+- 初始化 Qt 应用。
+- 加载样式。
+- 创建并展示 `MainWindow`。
+- 作为 `code-agent-gui` 命令入口。
 
-### `api/routes.py`
+### `gui/main_window.py`
 
-负责 Web API 路由。
+负责主窗口布局和事件绑定。
 
-推荐接口：
+职责：
+
+- 构建左侧控制栏和右侧对话主区域。
+- 读取用户输入的 task、workspace、max steps。
+- 启动和管理 `AgentWorker`。
+- 接收 worker 发来的 trace event 并更新 UI。
+- 任务完成或出错后恢复按钮状态。
+
+### `gui/worker.py`
+
+负责后台运行 agent。
+
+职责：
+
+- 在独立线程里创建 `Agent`、`LLMClient`、`ToolRegistry` 和 `Workspace`。
+- 调用 `Agent.run(task, on_event=...)`。
+- 将 `TraceEvent` 通过 Qt signal 发送给主线程。
+- 将最终 `AgentRunResult` 或错误通过 signal 返回主线程。
+
+### `gui/widgets/`
+
+负责拆分界面组件。
+
+组件：
 
 ```text
-GET /health
-POST /api/runs
-GET /api/runs/{run_id}
-GET /api/runs/{run_id}/events
+task_panel.py    # 任务输入、workspace 选择、运行按钮
+chat_panel.py    # 对话式 agent 事件流，详情默认折叠
+trace_panel.py   # 旧版 agent trace 时间线，可保留为备用
+detail_panel.py  # 旧版详情面板，可保留为备用
 ```
 
-其中 `/api/runs/{run_id}/events` 可以先用轮询实现，后续再升级为 SSE 或 WebSocket。
+GUI 组件只处理展示和交互，不直接调用模型 API，不直接执行文件或命令工具。
 
-### `frontend/src/`
-
-负责前端页面和交互。
-
-职责：
-
-- 调用后端 API。
-- 展示任务输入框。
-- 展示 agent trace timeline。
-- 展示工具调用参数、状态和输出。
-- 展示最终结果。
-- 不包含 agent loop、工具执行或模型调用逻辑。
+说明：此前尝试过的 `frontend/` Web 原型暂时作为实验产物保留，不作为当前主线。当前 GUI 主线切换为 Windows 桌面客户端。
 
 ## 技术栈建议
 
 - 语言：Python
 - CLI：`argparse` 或 `Typer`
-- Web 后端：`FastAPI`
-- Web 前端：`Vite` + `TypeScript` + 原生组件，或在需要时使用轻量框架
+- Windows GUI：`PySide6-Essentials` / Qt for Python
 - 模型调用：OpenAI 兼容 API
 - 测试：`pytest`
 
@@ -355,7 +354,8 @@ GET /api/runs/{run_id}/events
 - 不要调用 Code Interpreter、Files API 等 API 服务端托管执行能力。
 - API key 只能通过环境变量或本地未入库配置文件提供。
 - README 和视频中不要出现 API key。
-- GUI 不能只是包装现成 agent 产品。
+- GUI 不能只是包装现成 agent 产品，必须调用本项目自研的 agent core。
+- GUI 主线程不能直接运行 agent loop，避免界面冻结。
 - 截止时间后不要再向公开仓库推送新提交。
 
 ## 推荐优先级
@@ -364,5 +364,5 @@ GET /api/runs/{run_id}/events
 2. 加入 workspace sandbox。
 3. 加入 trace event。
 4. 写基础测试。
-5. 再实现 Web GUI。
+5. 再实现 Windows GUI。
 6. 最后整理 README 和视频演示脚本。

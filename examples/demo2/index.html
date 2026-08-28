@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打地鼠小游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .info {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+        .info span {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 120px);
+            grid-template-rows: repeat(3, 120px);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .hole {
+            width: 120px;
+            height: 120px;
+            background: #5d4037;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        .mole {
+            width: 80px;
+            height: 80px;
+            background: #8d6e63;
+            border-radius: 50%;
+            position: absolute;
+            bottom: -100%;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+        .mole::before, .mole::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #333;
+            border-radius: 50%;
+            top: 25px;
+        }
+        .mole::before { left: 20px; }
+        .mole::after { right: 20px; }
+        .mole .nose {
+            position: absolute;
+            width: 16px;
+            height: 12px;
+            background: #ffab91;
+            border-radius: 50%;
+            top: 42px;
+        }
+        .mole.up {
+            bottom: 10px;
+        }
+        .mole.hit {
+            background: #ef5350;
+            transition: background 0.1s;
+        }
+        .btn {
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 30px;
+            background: #ffca28;
+            color: #333;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        .btn-stop {
+            background: #ef5350;
+            color: #fff;
+            margin-left: 10px;
+        }
+        .btn-pause {
+            background: #42a5f5;
+            color: #fff;
+            margin-left: 10px;
+        }
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .overlay.active {
+            display: flex;
+        }
+        .overlay h2 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .overlay p {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔨 打地鼠</h1>
+    <div class="info">
+        <span>得分: <strong id="score">0</strong></span>
+        <span>时间: <strong id="time">30</strong> 秒</span>
+    </div>
+    <div class="game-board" id="board"></div>
+    <div>
+        <button class="btn" id="startBtn" onclick="startGame()">开始游戏</button>
+        <button class="btn btn-pause" id="pauseBtn" onclick="togglePause()" style="display:none;">暂停</button>
+        <button class="btn btn-stop" id="stopBtn" onclick="stopGame()" style="display:none;">停止游戏</button>
+    </div>
+
+    <div class="overlay" id="overlay">
+        <h2 id="overlayTitle">游戏结束!</h2>
+        <p>最终得分: <span id="finalScore">0</span></p>
+        <button class="btn" onclick="startGame()">再玩一次</button>
+    </div>
+
+    <script>
+        const board = document.getElementById('board');
+        const scoreEl = document.getElementById('score');
+        const timeEl = document.getElementById('time');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const finalScoreEl = document.getElementById('finalScore');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+
+        let score = 0;
+        let timeLeft = 30;
+        let gameInterval;
+        let moleInterval;
+        let timerInterval;
+        let activeMole = null;
+        let isPlaying = false;
+        let isPaused = false;
+
+        // 初始化游戏板
+        function initBoard() {
+            board.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const hole = document.createElement('div');
+                hole.className = 'hole';
+                hole.dataset.index = i;
+
+                const mole = document.createElement('div');
+                mole.className = 'mole';
+                mole.innerHTML = '<div class="nose"></div>';
+                mole.addEventListener('click', (e) => whack(e, mole));
+                hole.addEventListener('click', () => {
+                    if (!mole.classList.contains('up')) {
+                        //  miss effect could go here
+                    }
+                });
+
+                hole.appendChild(mole);
+                board.appendChild(hole);
+            }
+        }
+
+        function randomTime(min, max) {
+            return Math.round(Math.random() * (max - min) + min);
+        }
+
+        function randomHole() {
+            const holes = document.querySelectorAll('.hole');
+            const idx = Math.floor(Math.random() * holes.length);
+            const mole = holes[idx].querySelector('.mole');
+            if (mole === activeMole) return randomHole();
+            return mole;
+        }
+
+        function peep() {
+            if (isPaused) return;
+            const time = randomTime(600, 1200);
+            const mole = randomHole();
+            mole.classList.add('up');
+            activeMole = mole;
+            setTimeout(() => {
+                mole.classList.remove('up');
+                if (isPlaying && !isPaused) peep();
+            }, time);
+        }
+
+        function whack(e, mole) {
+            if (!e.isTrusted || !mole.classList.contains('up') || isPaused) return;
+            score++;
+            mole.classList.remove('up');
+            mole.classList.add('hit');
+            setTimeout(() => mole.classList.remove('hit'), 200);
+            scoreEl.textContent = score;
+        }
+
+        function startGame() {
+            if (isPlaying && !isPaused) return;
+            isPlaying = true;
+            isPaused = false;
+            score = 0;
+            timeLeft = 30;
+            scoreEl.textContent = score;
+            timeEl.textContent = timeLeft;
+            overlay.classList.remove('active');
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            pauseBtn.style.display = 'inline-block';
+            pauseBtn.textContent = '暂停';
+            initBoard();
+
+            peep();
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timeEl.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function togglePause() {
+            if (!isPlaying) return;
+            if (isPaused) {
+                isPaused = false;
+                pauseBtn.textContent = '暂停';
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    timeEl.textContent = timeLeft;
+                    if (timeLeft <= 0) {
+                        endGame();
+                    }
+                }, 1000);
+                peep();
+            } else {
+                isPaused = true;
+                pauseBtn.textContent = '继续';
+                clearInterval(timerInterval);
+            }
+        }
+
+        function stopGame() {
+            if (!isPlaying) return;
+            overlayTitle.textContent = '游戏已停止';
+            endGame();
+        }
+
+        function endGame() {
+            isPlaying = false;
+            isPaused = false;
+            clearInterval(timerInterval);
+            finalScoreEl.textContent = score;
+            overlay.classList.add('active');
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            pauseBtn.style.display = 'none';
+            const moles = document.querySelectorAll('.mole');
+            moles.forEach(m => m.classList.remove('up'));
+            if (overlayTitle.textContent !== '游戏已停止') {
+                overlayTitle.textContent = '游戏结束!';
+            }
+        }
+
+        initBoard();
+    </script>
+</body>
+</html>

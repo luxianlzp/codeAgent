@@ -22,7 +22,7 @@ class ListFilesTool:
         for child in sorted(path.iterdir(), key=lambda item: item.name.lower()):
             suffix = "/" if child.is_dir() else ""
             entries.append(f"{child.relative_to(self._workspace.root)}{suffix}")
-        return ToolResult(True, "\n".join(entries) or "(empty)")
+        return ToolResult(True, "\n".join(entries) or "(empty)", {"entries": entries, "count": len(entries)})
 
 
 class ReadFileTool:
