@@ -14,7 +14,8 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Code Agent")
-        self.resize(1360, 840)
+        self.resize(1120, 720)
+        self.setMinimumSize(900, 600)
         self._thread: QThread | None = None
         self._worker: AgentWorker | None = None
         self._chat_events: dict[str, list[dict]] = {}

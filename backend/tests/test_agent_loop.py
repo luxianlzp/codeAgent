@@ -16,6 +16,17 @@ class FakeLLM:
         return self._responses.pop(0)
 
 
+class FakeStreamingLLM:
+    def __init__(self, chunks: list[str]) -> None:
+        self._chunks = chunks
+
+    def complete(self, messages: list[Message]) -> str:
+        return "".join(self._chunks)
+
+    def stream_complete(self, messages: list[Message]):
+        yield from self._chunks
+
+
 def test_agent_runs_tool_loop_until_finish(tmp_path) -> None:
     llm = FakeLLM(
         [
@@ -64,6 +75,20 @@ def test_agent_emits_events_to_callback(tmp_path) -> None:
 
     assert result.ok is True
     assert [event.kind for event in streamed] == [event.kind for event in result.events]
+
+
+def test_agent_streams_model_deltas_before_parsing_action(tmp_path) -> None:
+    llm = FakeStreamingLLM(['{"action":"finish","args":', '{"message":"streamed done"}}'])
+    workspace = Workspace(tmp_path)
+    config = AgentConfig(max_steps=3)
+    agent = Agent(llm=llm, tools=build_default_registry(workspace, config), config=config)
+
+    result = agent.run("Stop.")
+
+    deltas = [event for event in result.events if event.kind == "model_delta"]
+    assert [event.message for event in deltas] == ['{"action":"finish","args":', '{"message":"streamed done"}}']
+    assert result.status == "finished"
+    assert result.final_message == "streamed done"
 
 
 def test_action_parser_normalizes_missing_args() -> None:

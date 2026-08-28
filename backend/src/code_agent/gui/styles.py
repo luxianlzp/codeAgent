@@ -35,8 +35,8 @@ QFrame#MessageRow {
 QFrame#Composer {
     background: #ffffff;
     border: 1px solid #e5e7eb;
-    border-radius: 24px;
-    margin: 0 72px 24px 72px;
+    border-radius: 18px;
+    margin: 0 64px 16px 64px;
 }
 
 QLabel#BrandTitle {
@@ -94,7 +94,7 @@ QTextEdit#ComposerInput {
     background: transparent;
     color: #202124;
     border: none;
-    padding: 10px;
+    padding: 6px 8px;
     selection-background-color: #dbeafe;
 }
 
@@ -151,12 +151,6 @@ QPushButton#IconButton {
     padding: 7px;
 }
 
-QPushButton#PathButton {
-    min-width: 72px;
-    max-width: 86px;
-    padding: 7px 10px;
-}
-
 QPushButton#GhostButton {
     background: transparent;
     color: #6b7280;
@@ -172,12 +166,12 @@ QPushButton#SendButton {
     background: #202124;
     color: #ffffff;
     border: none;
-    border-radius: 22px;
-    min-width: 44px;
-    max-width: 44px;
-    min-height: 44px;
-    max-height: 44px;
-    font-size: 20px;
+    border-radius: 18px;
+    min-width: 36px;
+    max-width: 36px;
+    min-height: 36px;
+    max-height: 36px;
+    font-size: 17px;
     font-weight: 700;
 }
 

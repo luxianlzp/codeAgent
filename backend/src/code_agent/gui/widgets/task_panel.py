@@ -8,7 +8,6 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -54,9 +53,6 @@ class TaskPanel(QFrame):
 
         self.workspace_edit = QLineEdit()
         self.workspace_edit.setReadOnly(True)
-        self.browse_button = QPushButton("Change")
-        self.browse_button.setObjectName("PathButton")
-        self.browse_button.clicked.connect(self._choose_workspace)
 
         self.max_steps = QSpinBox()
         self.max_steps.setRange(1, 30)
@@ -103,11 +99,7 @@ class TaskPanel(QFrame):
         settings_label.setObjectName("SectionLabel")
         layout.addWidget(settings_label)
         layout.addWidget(QLabel("项目文件夹"))
-
-        workspace_row = QHBoxLayout()
-        workspace_row.addWidget(self.workspace_edit, 1)
-        workspace_row.addWidget(self.browse_button)
-        layout.addLayout(workspace_row)
+        layout.addWidget(self.workspace_edit)
 
         layout.addWidget(QLabel("Max steps"))
         layout.addWidget(self.max_steps)
@@ -116,7 +108,6 @@ class TaskPanel(QFrame):
     def set_running(self, running: bool) -> None:
         self.new_project_button.setEnabled(not running)
         self.new_chat_button.setEnabled(not running)
-        self.browse_button.setEnabled(not running)
         self.max_steps.setEnabled(not running)
         self.project_list.setEnabled(not running)
         self.chat_list.setEnabled(not running)
@@ -198,17 +189,6 @@ class TaskPanel(QFrame):
         self._refresh_projects()
         self._refresh_chats()
         self.chat_changed.emit(self._current_chat_id)
-
-    def _choose_workspace(self) -> None:
-        project = self.current_project()
-        if project is None:
-            return
-        directory = QFileDialog.getExistingDirectory(self, "选择项目文件夹", project.path)
-        if directory:
-            project.path = str(Path(directory).resolve())
-            project.name = Path(project.path).name or project.path
-            self._refresh_projects()
-            self._sync_workspace_label()
 
     def _select_project_row(self, row: int) -> None:
         if not 0 <= row < len(self._projects):

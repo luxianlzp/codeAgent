@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
+from typing import Any
 
 from code_agent.core.messages import Message
 
@@ -37,3 +39,28 @@ class OpenAICompatibleClient:
         if content is None:
             raise RuntimeError("Model returned an empty message.")
         return content
+
+    def stream_complete(self, messages: list[Message]) -> Iterator[str]:
+        try:
+            stream = self._client.chat.completions.create(
+                model=self._model,
+                messages=[message.to_dict() for message in messages],
+                temperature=0,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = _stream_chunk_content(chunk)
+                if delta:
+                    yield delta
+        except Exception as exc:
+            raise RuntimeError(f"Model API stream request failed: {exc}") from exc
+
+
+def _stream_chunk_content(chunk: Any) -> str | None:
+    choices = getattr(chunk, "choices", None) or []
+    if not choices:
+        return None
+    choice = choices[0]
+    delta_obj = getattr(choice, "delta", None)
+    delta = getattr(delta_obj, "content", None)
+    return delta if isinstance(delta, str) and delta else None

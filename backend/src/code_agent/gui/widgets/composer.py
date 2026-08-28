@@ -15,8 +15,8 @@ class Composer(QFrame):
         self.input = QTextEdit()
         self.input.setObjectName("ComposerInput")
         self.input.setPlaceholderText("给 Code Agent 一个编程任务...")
-        self.input.setMinimumHeight(88)
-        self.input.setMaximumHeight(150)
+        self.input.setMinimumHeight(48)
+        self.input.setMaximumHeight(84)
 
         self.send_button = QPushButton("↑")
         self.send_button.setObjectName("SendButton")
@@ -30,8 +30,8 @@ class Composer(QFrame):
         input_row.addWidget(self.send_button)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 14, 20, 14)
-        layout.setSpacing(8)
+        layout.setContentsMargins(16, 8, 16, 8)
+        layout.setSpacing(0)
         layout.addLayout(input_row)
 
     def set_running(self, running: bool) -> None:

@@ -42,8 +42,8 @@ class Agent:
         for step in range(1, self._config.max_steps + 1):
             emit(TraceEvent("step", f"Step {step}", {"step": step}))
             emit(TraceEvent("model_request", "Calling model", {"step": step}))
-            raw_response = self._llm.complete(messages)
-            emit(TraceEvent("model_response", raw_response))
+            raw_response = self._complete_model(messages, step, emit)
+            emit(TraceEvent("model_response", raw_response, {"step": step, "streamed": True}))
             messages.append(Message("assistant", raw_response))
 
             action = AgentAction.parse(raw_response)
@@ -67,3 +67,14 @@ class Agent:
         message = f"Stopped after max_steps={self._config.max_steps}"
         emit(TraceEvent("error", message, {"max_steps": self._config.max_steps}))
         return AgentRunResult("max_steps", message, events)
+
+    def _complete_model(self, messages: list[Message], step: int, emit: EventHandler) -> str:
+        stream_complete = getattr(self._llm, "stream_complete", None)
+        if stream_complete is None:
+            return self._llm.complete(messages)
+
+        chunks: list[str] = []
+        for chunk in stream_complete(messages):
+            chunks.append(chunk)
+            emit(TraceEvent("model_delta", chunk, {"step": step}))
+        return "".join(chunks)

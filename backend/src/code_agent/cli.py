@@ -62,6 +62,8 @@ def format_event(event: TraceEvent, verbose: bool = False, theme: Theme | None =
         step = event.data.get("step")
         suffix = f" step={step}" if step is not None else ""
         return f"{theme.paint('[model]', 'cyan')} calling model...{theme.paint(suffix, 'dim')}"
+    if event.kind == "model_delta":
+        return None
     if event.kind == "model_response" and not verbose:
         return None
     if event.kind == "model_response":

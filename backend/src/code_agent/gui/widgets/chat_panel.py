@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 EXECUTION_EVENT_KINDS = {
     "model_request",
+    "model_delta",
     "model_response",
     "action",
     "tool_call",
@@ -41,12 +42,14 @@ class ChatPanel(QFrame):
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setWidget(self.messages)
+        self._stream_cards: dict[int, MessageCard] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.scroll, 1)
 
     def clear(self) -> None:
+        self._stream_cards.clear()
         while self.messages_layout.count() > 1:
             item = self.messages_layout.takeAt(0)
             widget = item.widget()
@@ -61,6 +64,11 @@ class ChatPanel(QFrame):
     def append_event(self, event: dict) -> None:
         kind = str(event.get("kind", "event"))
         if kind == "step":
+            return
+        if kind == "model_delta":
+            self._append_model_delta(event)
+            return
+        if kind == "model_response" and _event_data(event).get("streamed"):
             return
         if kind == "finish":
             self._hide_execution_events()
@@ -79,6 +87,25 @@ class ChatPanel(QFrame):
             row_layout.addWidget(card)
             row_layout.addStretch(1)
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, row)
+        self._scroll_to_bottom()
+
+    def _append_model_delta(self, event: dict) -> None:
+        data = _event_data(event)
+        step = int(data.get("step", 0))
+        card = self._stream_cards.get(step)
+        if card is None:
+            card = MessageCard({"kind": "model_delta", "message": "", "data": data, "timestamp": event.get("timestamp")})
+            self._stream_cards[step] = card
+            row = QFrame()
+            row.setObjectName("MessageRow")
+            row.setProperty("event_kind", "model_delta")
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(0)
+            row_layout.addWidget(card)
+            row_layout.addStretch(1)
+            self.messages_layout.insertWidget(self.messages_layout.count() - 1, row)
+        card.append_stream_text(str(event.get("message", "")))
         self._scroll_to_bottom()
 
     def show_final_message(self, message: str) -> None:
@@ -112,9 +139,9 @@ class MessageCard(QFrame):
 
         label = QLabel(_label_for_kind(kind))
         label.setObjectName("MessageRole")
-        summary = QLabel(_summary_for_event(event))
-        summary.setWordWrap(True)
-        summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.summary = QLabel(_summary_for_event(event))
+        self.summary.setWordWrap(True)
+        self.summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
         self.details = QPlainTextEdit()
         self.details.setReadOnly(True)
@@ -137,8 +164,11 @@ class MessageCard(QFrame):
         layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(8)
         layout.addLayout(top)
-        layout.addWidget(summary)
+        layout.addWidget(self.summary)
         layout.addWidget(self.details)
+
+    def append_stream_text(self, text: str) -> None:
+        self.summary.setText(self.summary.text() + text)
 
     def _toggle_details(self) -> None:
         next_visible = not self.details.isVisible()
@@ -158,6 +188,7 @@ def _label_for_kind(kind: str) -> str:
     labels = {
         "user_message": "You",
         "model_request": "Agent",
+        "model_delta": "Model",
         "model_response": "Model",
         "action": "Action",
         "tool_call": "Tool",
@@ -176,6 +207,8 @@ def _summary_for_event(event: dict) -> str:
     if kind == "model_request":
         step = data.get("step")
         return f"Thinking and calling the model{f' (step {step})' if step else ''}..."
+    if kind == "model_delta":
+        return message
     if kind == "model_response":
         return "Received a model response."
     if kind == "action":
@@ -246,3 +279,7 @@ def _detail_for_event(event: dict) -> str:
 
 def _has_details(event: dict) -> bool:
     return event.get("kind") in {"tool_call", "tool_result", "model_response", "error"}
+
+
+def _event_data(event: dict) -> dict:
+    return event.get("data") if isinstance(event.get("data"), dict) else {}
