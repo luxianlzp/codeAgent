@@ -28,6 +28,8 @@ class MainWindow(QMainWindow):
         self.composer = Composer()
         self.status_label = QLabel("Idle")
         self.status_label.setObjectName("StatusLabel")
+        self.step_label = QLabel("Step —")
+        self.step_label.setObjectName("StatusLabel")
         self.title_label = QLabel(self.task_panel.current_chat_title())
         self.title_label.setObjectName("HeaderTitle")
         self._active_chat_id = self.task_panel.current_chat_id()
@@ -50,7 +52,7 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(main_area, 1)
 
         self.setCentralWidget(root)
-        self.setStatusBar(QStatusBar())
+        self._build_status_bar()
 
         self.composer.run_requested.connect(self._run_from_composer)
         self.composer.skill_picker_requested.connect(self._open_skill_picker)
@@ -60,11 +62,23 @@ class MainWindow(QMainWindow):
         header = QFrame()
         header.setObjectName("TopBar")
         layout = QHBoxLayout(header)
-        layout.setContentsMargins(20, 12, 20, 12)
+        layout.setContentsMargins(24, 14, 24, 14)
         layout.addWidget(self.title_label)
         layout.addStretch(1)
         layout.addWidget(self.status_label)
         return header
+
+    def _build_status_bar(self) -> None:
+        status_bar = QStatusBar()
+        status_bar.setSizeGripEnabled(False)
+        connection = QLabel("●  Connected")
+        connection.setObjectName("ConnectionStatus")
+        model = QLabel(f"Model  {self.task_panel.model_name()}")
+        model.setObjectName("StatusChip")
+        status_bar.addWidget(connection)
+        status_bar.addPermanentWidget(model)
+        status_bar.addPermanentWidget(self.step_label)
+        self.setStatusBar(status_bar)
 
     def _run_from_composer(self, task: str, skill_names: list[str]) -> None:
         if self.task_panel.current_chat_title().startswith("新对话"):
@@ -84,6 +98,7 @@ class MainWindow(QMainWindow):
             return
 
         self.status_label.setText("Running")
+        self.step_label.setText("Step 0")
         self.task_panel.set_running(True)
         self.composer.set_running(True)
 
@@ -106,11 +121,13 @@ class MainWindow(QMainWindow):
     def _handle_finished(self, result: dict) -> None:
         status = str(result.get("status", "finished"))
         self.status_label.setText(status)
+        self.step_label.setText("Complete")
         self.task_panel.set_running(False)
         self.composer.set_running(False)
 
     def _handle_failed(self, error: str) -> None:
         self.status_label.setText("Error")
+        self.step_label.setText("Failed")
         self._append_event({"kind": "error", "message": error, "data": {}, "timestamp": 0})
         self.task_panel.set_running(False)
         self.composer.set_running(False)
@@ -120,6 +137,10 @@ class MainWindow(QMainWindow):
         self._worker = None
 
     def _append_event(self, event: dict) -> None:
+        if event.get("kind") == "step":
+            data = event.get("data") if isinstance(event.get("data"), dict) else {}
+            self.step_label.setText(f"Step {data.get('step', '—')}")
+            return
         chat_id = self._active_chat_id
         if chat_id:
             self._chat_events.setdefault(chat_id, []).append(event)
@@ -134,6 +155,7 @@ class MainWindow(QMainWindow):
         self.chat_panel.show_events(self._chat_events[chat_id])
         self._update_header_title()
         self.status_label.setText("Idle")
+        self.step_label.setText("Step —")
 
     def _update_header_title(self) -> None:
         self.title_label.setText(self.task_panel.current_chat_title())

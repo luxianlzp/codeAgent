@@ -36,20 +36,23 @@ class Composer(QFrame):
         shortcut = QShortcut(QKeySequence("Ctrl+Return"), self.input)
         shortcut.activated.connect(self._emit_run)
 
-        meta_row = QHBoxLayout()
-        meta_row.addWidget(self.skill_button)
-        meta_row.addWidget(self.skill_label)
-        meta_row.addStretch(1)
-
         input_row = QHBoxLayout()
+        input_row.setContentsMargins(0, 0, 0, 0)
+        input_row.setSpacing(10)
+        input_row.addWidget(self.skill_button)
         input_row.addWidget(self.input, 1)
         input_row.addWidget(self.send_button)
 
+        meta_row = QHBoxLayout()
+        meta_row.setContentsMargins(38, 0, 46, 0)
+        meta_row.addWidget(self.skill_label)
+        meta_row.addStretch(1)
+
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 8, 16, 8)
-        layout.setSpacing(6)
-        layout.addLayout(meta_row)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(8)
         layout.addLayout(input_row)
+        layout.addLayout(meta_row)
 
     def set_running(self, running: bool) -> None:
         self.input.setEnabled(not running)

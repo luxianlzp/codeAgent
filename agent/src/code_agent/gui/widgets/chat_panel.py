@@ -36,6 +36,8 @@ class ChatPanel(QFrame):
         self.messages_layout = QVBoxLayout(self.messages)
         self.messages_layout.setContentsMargins(72, 26, 72, 26)
         self.messages_layout.setSpacing(14)
+        self.empty_state = self._build_empty_state()
+        self.messages_layout.addWidget(self.empty_state)
         self.messages_layout.addStretch(1)
 
         self.scroll = QScrollArea()
@@ -48,13 +50,33 @@ class ChatPanel(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.scroll, 1)
 
+    def _build_empty_state(self) -> QFrame:
+        card = QFrame()
+        card.setObjectName("EmptyState")
+        card.setMaximumWidth(760)
+        title = QLabel("开始一个编码任务")
+        title.setObjectName("EmptyTitle")
+        subtitle = QLabel("描述目标，Code Agent 会分析任务、调用工具并反馈结果。")
+        subtitle.setObjectName("Muted")
+        examples = QLabel("示例：\n  • 查看项目结构并总结主要模块\n  • 创建一个 Python 文件并运行测试\n  • 修复 calculator.py 中的一个 bug")
+        examples.setObjectName("EmptyExamples")
+        examples.setWordWrap(True)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(8)
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
+        layout.addWidget(examples)
+        return card
+
     def clear(self) -> None:
         self._stream_cards.clear()
-        while self.messages_layout.count() > 1:
+        while self.messages_layout.count() > 2:
             item = self.messages_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
+        self.empty_state.setVisible(True)
 
     def show_events(self, events: list[dict]) -> None:
         self.clear()
@@ -65,12 +87,15 @@ class ChatPanel(QFrame):
         kind = str(event.get("kind", "event"))
         if kind == "step":
             return
+        self.empty_state.setVisible(False)
         if kind == "model_delta":
             self._append_model_delta(event)
             return
         if kind == "model_response" and _event_data(event).get("streamed"):
             return
         if kind == "finish":
+            # 任务完成后收起模型思考、Action 和 Tool 事件，只保留最终输出。
+            # 这些事件仍然保留在布局中，避免破坏当前对话历史和详情数据。
             self._hide_execution_events()
 
         card = MessageCard(event)
@@ -135,6 +160,7 @@ class MessageCard(QFrame):
         kind = str(event.get("kind", "event"))
         role = _role_for_kind(kind)
         self.setObjectName(f"MessageCard-{role}")
+        self.setProperty("event_kind", kind)
         self.setMaximumWidth(900 if role != "user" else 720)
 
         label = QLabel(_label_for_kind(kind))
@@ -215,21 +241,22 @@ def _summary_for_event(event: dict) -> str:
         return f"Next action: {message}"
     if kind == "tool_call":
         args = data.get("args") if isinstance(data.get("args"), dict) else {}
-        return f"Calling {message}: {_summarize_args(message, args)}"
+        return f"Tool Call · {message} · Running\n{_summarize_args(message, args)}"
     if kind == "tool_result":
         nested = data.get("data") if isinstance(data.get("data"), dict) else {}
         tool = str(data.get("tool", "tool"))
         ok = bool(data.get("ok"))
         if tool == "list_files" and isinstance(nested.get("count"), int):
-            return f"{tool} {'succeeded' if ok else 'failed'}: listed {nested['count']} entries."
+            return f"Tool Result · {tool} · {'Success' if ok else 'Error'}\nListed {nested['count']} entries."
         if tool == "write_file" and nested.get("path"):
             changed = "changed" if nested.get("changed") else "unchanged"
-            return f"{tool} {'succeeded' if ok else 'failed'}: {nested['path']} {changed}."
+            return f"Tool Result · {tool} · {'Success' if ok else 'Error'}\n{nested['path']} ({changed})."
         if tool == "run_command" and "exit_code" in nested:
-            return f"{tool} {'succeeded' if ok else 'failed'}: exit_code={nested['exit_code']}."
+            status = "Success" if ok else "Error"
+            return f"Tool Result · {tool} · {status}\nexit_code={nested['exit_code']}"
         if tool == "read_file":
-            return f"{tool} {'succeeded' if ok else 'failed'}: {_summarize_text(message)}"
-        return f"{tool} {'succeeded' if ok else 'failed'}."
+            return f"Tool Result · {tool} · {'Success' if ok else 'Error'}\n{_summarize_text(message)}"
+        return f"Tool Result · {tool} · {'Success' if ok else 'Error'}"
     if kind == "finish":
         return message
     if kind == "error":

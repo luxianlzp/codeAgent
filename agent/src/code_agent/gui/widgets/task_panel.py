@@ -53,6 +53,8 @@ class TaskPanel(QFrame):
 
         self.workspace_edit = QLineEdit()
         self.workspace_edit.setReadOnly(True)
+        self.model_edit = QLineEdit()
+        self.model_edit.setReadOnly(True)
 
         self.max_steps = QSpinBox()
         self.max_steps.setRange(1, 30)
@@ -75,14 +77,14 @@ class TaskPanel(QFrame):
         self.chat_list.currentRowChanged.connect(self._select_chat_row)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(18, 20, 18, 18)
+        layout.setSpacing(10)
 
         brand = QLabel("Code Agent")
         brand.setObjectName("BrandTitle")
         layout.addWidget(brand)
         layout.addWidget(self.new_project_button)
-        layout.addSpacing(12)
+        layout.addSpacing(10)
 
         project_label = QLabel("项目")
         project_label.setObjectName("SectionLabel")
@@ -94,15 +96,24 @@ class TaskPanel(QFrame):
         layout.addWidget(chat_label)
         layout.addWidget(self.new_chat_button)
         layout.addWidget(self.chat_list, 2)
+        layout.addSpacing(8)
 
         settings_label = QLabel("运行设置")
         settings_label.setObjectName("SectionLabel")
         layout.addWidget(settings_label)
-        layout.addWidget(QLabel("项目文件夹"))
+        workspace_label = QLabel("Workspace")
+        workspace_label.setObjectName("FieldLabel")
+        layout.addWidget(workspace_label)
         layout.addWidget(self.workspace_edit)
 
-        layout.addWidget(QLabel("Max steps"))
+        steps_label = QLabel("Max Steps")
+        steps_label.setObjectName("FieldLabel")
+        layout.addWidget(steps_label)
         layout.addWidget(self.max_steps)
+        model_label = QLabel("Model")
+        model_label.setObjectName("FieldLabel")
+        layout.addWidget(model_label)
+        layout.addWidget(self.model_edit)
         self._add_initial_project()
 
     def set_running(self, running: bool) -> None:
@@ -125,6 +136,10 @@ class TaskPanel(QFrame):
 
     def max_step_count(self) -> int:
         return self.max_steps.value()
+
+    def model_name(self) -> str:
+        from os import getenv
+        return getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     def create_chat(self) -> None:
         project = self.current_project()
@@ -243,3 +258,4 @@ class TaskPanel(QFrame):
 
     def _sync_workspace_label(self) -> None:
         self.workspace_edit.setText(self.workspace())
+        self.model_edit.setText(self.model_name())

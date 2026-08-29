@@ -8,105 +8,160 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(180deg, #87CEEB 0%, #90EE90 100%);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: #fff;
+            color: #333;
             user-select: none;
             overflow-x: hidden;
+            cursor: none;
         }
         h1 {
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             font-size: 2.5rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            color: #2e7d32;
+            text-shadow: 2px 2px 0 #fff, 4px 4px 0 rgba(0,0,0,0.1);
         }
         .info {
             display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
+            gap: 15px;
+            margin-bottom: 15px;
             font-size: 1.1rem;
             flex-wrap: wrap;
             justify-content: center;
         }
         .info span {
-            background: rgba(255,255,255,0.2);
-            padding: 10px 20px;
-            border-radius: 10px;
-            backdrop-filter: blur(5px);
+            background: #fff;
+            padding: 10px 18px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             min-width: 100px;
             text-align: center;
+            font-weight: bold;
+            color: #555;
         }
+        .info strong { color: #d32f2f; }
         .game-board {
             display: grid;
-            grid-template-columns: repeat(3, 120px);
-            grid-template-rows: repeat(3, 120px);
-            gap: 15px;
+            grid-template-columns: repeat(3, 130px);
+            grid-template-rows: repeat(3, 130px);
+            gap: 18px;
             margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         }
         .hole {
-            width: 120px;
-            height: 120px;
-            background: #5d4037;
+            width: 130px;
+            height: 130px;
+            background: radial-gradient(circle at 50% 70%, #3e2723 0%, #5d4037 40%, #8d6e63 100%);
             border-radius: 50%;
             position: relative;
             overflow: hidden;
-            box-shadow: inset 0 10px 20px rgba(0,0,0,0.5), 0 5px 10px rgba(0,0,0,0.3);
-            cursor: pointer;
+            box-shadow: inset 0 15px 25px rgba(0,0,0,0.6), 0 6px 12px rgba(0,0,0,0.3);
+            cursor: none;
+        }
+        .hole::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: -10%;
+            width: 120%;
+            height: 30px;
+            background: #4caf50;
+            border-radius: 50% 50% 0 0;
+            z-index: 2;
+            box-shadow: 0 -3px 8px rgba(0,0,0,0.2);
         }
         .mole {
-            width: 80px;
-            height: 80px;
+            width: 90px;
+            height: 90px;
             background: #8d6e63;
             border-radius: 50%;
             position: absolute;
             bottom: -100%;
             left: 50%;
             transform: translateX(-50%);
-            transition: bottom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: bottom 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 1;
         }
         .mole::before {
             content: '';
             position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 12px;
-            height: 12px;
-            background: #333;
+            top: 22px;
+            left: 22px;
+            width: 14px;
+            height: 14px;
+            background: #222;
             border-radius: 50%;
-            box-shadow: 28px 0 0 #333;
+            box-shadow: 32px 0 0 #222;
         }
         .mole::after {
             content: '';
             position: absolute;
-            top: 45px;
+            top: 50px;
             left: 50%;
             transform: translateX(-50%);
-            width: 20px;
-            height: 10px;
+            width: 24px;
+            height: 12px;
             background: #ffab91;
-            border-radius: 0 0 10px 10px;
+            border-radius: 0 0 12px 12px;
         }
-        .mole.up {
-            bottom: 10px;
-        }
+        .mole.up { bottom: 15px; }
         .mole.hit {
             background: #e53935;
-            transform: translateX(-50%) scale(0.9);
+            transform: translateX(-50%) scale(0.85) rotate(10deg);
+            transition: all 0.15s;
+        }
+        .mole.gold {
+            background: #ffd700;
+        }
+        .mole.gold::before {
+            background: #333;
+            box-shadow: 32px 0 0 #333;
+        }
+        .mole.gold::after {
+            background: #ff8a65;
+        }
+        .mole.fast {
+            background: #78909c;
+        }
+        .mole.fast::after {
+            background: #b0bec5;
+        }
+        .score-pop {
+            position: absolute;
+            left: 50%;
+            top: 20%;
+            transform: translateX(-50%);
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 10;
+            animation: popUp 0.8s forwards;
+        }
+        @keyframes popUp {
+            0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-60px) scale(1.3); }
         }
         .btn {
-            padding: 12px 30px;
-            font-size: 1.2rem;
+            padding: 12px 28px;
+            font-size: 1.1rem;
             border: none;
             border-radius: 30px;
             background: #ffca28;
             color: #333;
-            cursor: pointer;
+            cursor: none;
             font-weight: bold;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             transition: transform 0.2s, box-shadow 0.2s;
@@ -121,7 +176,7 @@
         }
         .btn:disabled {
             background: #ccc;
-            cursor: not-allowed;
+            cursor: none;
             box-shadow: none;
             transform: none;
         }
@@ -137,32 +192,48 @@
             flex-direction: column;
             z-index: 100;
             animation: fadeIn 0.3s;
+            cursor: none;
         }
         .overlay.active { display: flex; }
-        .overlay h2 { font-size: 3rem; margin-bottom: 15px; }
-        .overlay p { font-size: 1.5rem; margin-bottom: 10px; }
-        .overlay .rating { font-size: 1.2rem; margin-bottom: 25px; color: #ffca28; }
+        .overlay h2 { font-size: 3rem; margin-bottom: 15px; color: #fff; }
+        .overlay p { font-size: 1.5rem; margin-bottom: 10px; color: #fff; }
+        .overlay .rating { font-size: 1.3rem; margin-bottom: 25px; color: #ffca28; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .message {
             margin-top: 10px;
             font-size: 1.1rem;
             min-height: 30px;
             text-align: center;
+            color: #2e7d32;
+            font-weight: bold;
         }
-        .combo { color: #ffca28; font-weight: bold; }
+        .combo { color: #d32f2f; font-weight: bold; }
+        .hammer {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            font-size: 3rem;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            transition: transform 0.05s;
+        }
+        .hammer.smash {
+            transform: translate(-50%, -50%) rotate(-10deg) scale(0.9);
+        }
         @media (max-width: 500px) {
             .game-board {
-                grid-template-columns: repeat(3, 90px);
-                grid-template-rows: repeat(3, 90px);
-                gap: 10px;
+                grid-template-columns: repeat(3, 95px);
+                grid-template-rows: repeat(3, 95px);
+                gap: 12px;
+                padding: 15px;
             }
-            .hole { width: 90px; height: 90px; }
-            .mole { width: 60px; height: 60px; }
-            .mole::before { top: 15px; left: 15px; width: 10px; height: 10px; box-shadow: 20px 0 0 #333; }
-            .mole::after { top: 32px; width: 16px; height: 8px; }
+            .hole { width: 95px; height: 95px; }
+            .mole { width: 65px; height: 65px; }
+            .mole::before { top: 16px; left: 16px; width: 10px; height: 10px; box-shadow: 24px 0 0 #222; }
+            .mole::after { top: 36px; width: 18px; height: 9px; }
             h1 { font-size: 1.8rem; }
-            .info { gap: 10px; font-size: 0.95rem; }
-            .info span { padding: 8px 14px; min-width: 80px; }
+            .info { gap: 8px; font-size: 0.95rem; }
+            .info span { padding: 8px 12px; min-width: 80px; }
+            .hammer { font-size: 2.2rem; }
         }
     </style>
 </head>
@@ -172,6 +243,7 @@
         <span>得分: <strong id="score">0</strong></span>
         <span>时间: <strong id="time">30</strong>秒</span>
         <span>连击: <strong id="combo">0</strong></span>
+        <span>最高分: <strong id="highScore">0</strong></span>
     </div>
     <div class="game-board" id="board"></div>
     <div>
@@ -179,7 +251,7 @@
         <button class="btn btn-pause" id="pauseBtn" onclick="togglePause()" style="display:none;">暂停</button>
         <button class="btn btn-stop" id="stopBtn" onclick="stopGame()" style="display:none;">停止</button>
     </div>
-    <div class="message" id="message">点击"开始游戏"开始打地鼠！</div>
+    <div class="message" id="message">点击"开始游戏"开始打地鼠！金色地鼠+2分，灰色地鼠很快哦！</div>
 
     <div class="overlay" id="overlay">
         <h2 id="overlayTitle">游戏结束!</h2>
@@ -188,11 +260,14 @@
         <button class="btn" onclick="startGame()">再玩一次</button>
     </div>
 
+    <div class="hammer" id="hammer">🔨</div>
+
     <script>
         const board = document.getElementById('board');
         const scoreEl = document.getElementById('score');
         const timeEl = document.getElementById('time');
         const comboEl = document.getElementById('combo');
+        const highScoreEl = document.getElementById('highScore');
         const messageEl = document.getElementById('message');
         const overlay = document.getElementById('overlay');
         const overlayTitle = document.getElementById('overlayTitle');
@@ -201,6 +276,7 @@
         const startBtn = document.getElementById('startBtn');
         const pauseBtn = document.getElementById('pauseBtn');
         const stopBtn = document.getElementById('stopBtn');
+        const hammer = document.getElementById('hammer');
 
         let score = 0;
         let timeLeft = 30;
@@ -211,6 +287,70 @@
         let timerInterval = null;
         let peepTimeout = null;
         let activeMole = null;
+        let highScore = parseInt(localStorage.getItem('whackHighScore') || '0');
+        highScoreEl.textContent = highScore;
+
+        // 音效合成
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+            if (type === 'hit') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'gold') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'miss') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } else if (type === 'over') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.5);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            }
+        }
+
+        // 锤子跟随鼠标
+        document.addEventListener('mousemove', (e) => {
+            hammer.style.left = e.clientX + 'px';
+            hammer.style.top = e.clientY + 'px';
+        });
+        document.addEventListener('mousedown', () => hammer.classList.add('smash'));
+        document.addEventListener('mouseup', () => hammer.classList.remove('smash'));
+        document.addEventListener('touchstart', (e) => {
+            hammer.style.left = e.touches[0].clientX + 'px';
+            hammer.style.top = e.touches[0].clientY + 'px';
+            hammer.classList.add('smash');
+        });
+        document.addEventListener('touchend', () => hammer.classList.remove('smash'));
+        document.addEventListener('touchmove', (e) => {
+            hammer.style.left = e.touches[0].clientX + 'px';
+            hammer.style.top = e.touches[0].clientY + 'px';
+        });
 
         function initBoard() {
             board.innerHTML = '';
@@ -237,20 +377,46 @@
             return mole;
         }
 
+        function getDifficulty() {
+            const elapsed = 30 - timeLeft;
+            if (elapsed < 10) return { min: 600, max: 1100 };
+            if (elapsed < 20) return { min: 450, max: 900 };
+            return { min: 350, max: 700 };
+        }
+
         function peep() {
             if (!isPlaying || isPaused) return;
-            const time = randomTime(500, 1000);
+            const diff = getDifficulty();
+            const time = randomTime(diff.min, diff.max);
             const mole = randomMole();
             activeMole = mole;
-            mole.classList.remove('hit');
+
+            // 随机类型
+            mole.classList.remove('hit', 'gold', 'fast');
+            const rand = Math.random();
+            let type = 'normal';
+            if (rand > 0.85) { mole.classList.add('gold'); type = 'gold'; }
+            else if (rand > 0.65) { mole.classList.add('fast'); type = 'fast'; }
+
             mole.classList.add('up');
+
+            const stayTime = type === 'fast' ? time * 0.6 : time;
 
             peepTimeout = setTimeout(() => {
                 mole.classList.remove('up');
                 if (isPlaying && !isPaused) {
                     peep();
                 }
-            }, time);
+            }, stayTime);
+        }
+
+        function showPopText(el, text, color) {
+            const pop = document.createElement('div');
+            pop.className = 'score-pop';
+            pop.textContent = text;
+            if (color) pop.style.color = color;
+            el.appendChild(pop);
+            setTimeout(() => pop.remove(), 800);
         }
 
         function whack(e, mole) {
@@ -268,9 +434,29 @@
                 combo = 1;
             }
             lastHitTime = now;
-            score++;
+
+            let points = 1;
+            let sound = 'hit';
+            let popText = '+1';
+            let popColor = '#ffd700';
+
+            if (mole.classList.contains('gold')) {
+                points = 2;
+                sound = 'gold';
+                popText = '+2';
+                popColor = '#ff8f00';
+            } else if (mole.classList.contains('fast')) {
+                points = 1;
+                sound = 'hit';
+                popText = '+1 快!';
+                popColor = '#ffd700';
+            }
+
+            score += points;
             scoreEl.textContent = score;
             comboEl.textContent = combo;
+            playSound(sound);
+            showPopText(mole.parentElement, popText, popColor);
 
             if (combo >= 3) {
                 messageEl.innerHTML = `<span class="combo">太棒了！${combo}连击！🔥</span>`;
@@ -351,11 +537,20 @@
             const moles = document.querySelectorAll('.mole');
             moles.forEach(m => m.classList.remove('up'));
 
+            playSound('over');
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('whackHighScore', highScore);
+                highScoreEl.textContent = highScore;
+            }
+
             overlayTitle.textContent = title || '游戏结束!';
             finalScoreEl.textContent = score;
 
             let rating = '';
-            if (score >= 25) rating = '神射手！🏆';
+            if (score >= 35) rating = '传说级神射手！🏆🌟';
+            else if (score >= 25) rating = '神射手！🏆';
             else if (score >= 15) rating = '非常厉害！👏';
             else if (score >= 8) rating = '还不错哦！👍';
             else rating = '再接再厉！💪';
