@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>打地鼠游戏</title>
+    <title>打地鼠小游戏</title>
     <style>
         * {
             margin: 0;
@@ -11,7 +11,7 @@
             box-sizing: border-box;
         }
         body {
-            font-family: 'Microsoft YaHei', sans-serif;
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
@@ -19,6 +19,7 @@
             align-items: center;
             justify-content: center;
             color: #fff;
+            user-select: none;
         }
         h1 {
             margin-bottom: 20px;
@@ -35,6 +36,7 @@
             background: rgba(255,255,255,0.2);
             padding: 10px 20px;
             border-radius: 10px;
+            backdrop-filter: blur(5px);
         }
         .game-container {
             display: grid;
@@ -95,7 +97,6 @@
         }
         .mole.hit {
             background: #e53935;
-            transition: background 0.1s;
         }
         .btn {
             padding: 12px 30px;
@@ -119,11 +120,51 @@
         .btn:disabled {
             background: #ccc;
             cursor: not-allowed;
+            box-shadow: none;
         }
         .message {
             margin-top: 15px;
             font-size: 1.1rem;
             min-height: 30px;
+            text-align: center;
+        }
+        .combo {
+            color: #ffca28;
+            font-weight: bold;
+        }
+        @media (max-width: 500px) {
+            .game-container {
+                grid-template-columns: repeat(3, 90px);
+                grid-template-rows: repeat(3, 90px);
+                gap: 10px;
+            }
+            .hole {
+                width: 90px;
+                height: 90px;
+            }
+            .mole {
+                width: 60px;
+                height: 60px;
+            }
+            .mole::before {
+                top: 15px;
+                left: 15px;
+                width: 10px;
+                height: 10px;
+                box-shadow: 20px 0 0 #333;
+            }
+            .mole::after {
+                top: 32px;
+                width: 16px;
+                height: 8px;
+            }
+            h1 {
+                font-size: 1.8rem;
+            }
+            .info {
+                gap: 20px;
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
@@ -132,6 +173,7 @@
     <div class="info">
         <span>得分: <strong id="score">0</strong></span>
         <span>时间: <strong id="time">30</strong>秒</span>
+        <span>连击: <strong id="combo">0</strong></span>
     </div>
     <div class="game-container" id="game">
         <div class="hole" data-index="0"><div class="mole"></div></div>
@@ -152,6 +194,7 @@
         const moles = document.querySelectorAll('.mole');
         const scoreEl = document.getElementById('score');
         const timeEl = document.getElementById('time');
+        const comboEl = document.getElementById('combo');
         const startBtn = document.getElementById('startBtn');
         const messageEl = document.getElementById('message');
 
@@ -161,6 +204,8 @@
         let moleTimer = null;
         let countdownTimer = null;
         let currentMole = null;
+        let combo = 0;
+        let lastHitTime = 0;
 
         function randomTime(min, max) {
             return Math.round(Math.random() * (max - min) + min);
@@ -193,11 +238,30 @@
             const mole = this.querySelector('.mole');
             if (!mole.classList.contains('up') || mole.classList.contains('hit')) return;
 
+            // 计算连击
+            const now = Date.now();
+            if (now - lastHitTime < 1500) {
+                combo++;
+            } else {
+                combo = 1;
+            }
+            lastHitTime = now;
+
             score++;
-            mole.classList.remove('up');
             mole.classList.add('hit');
             scoreEl.textContent = score;
-            messageEl.textContent = '打中了！+';
+            comboEl.textContent = combo;
+
+            if (combo >= 3) {
+                messageEl.innerHTML = `<span class="combo">太棒了！${combo}连击！</span>`;
+            } else {
+                messageEl.textContent = '打中了！';
+            }
+
+            // 被击中后短暂停留再缩回
+            setTimeout(() => {
+                mole.classList.remove('up');
+            }, 200);
         }
 
         holes.forEach(hole => hole.addEventListener('click', bonk));
@@ -205,9 +269,12 @@
         function startGame() {
             score = 0;
             timeLeft = 30;
+            combo = 0;
+            lastHitTime = 0;
             gameActive = true;
             scoreEl.textContent = score;
             timeEl.textContent = timeLeft;
+            comboEl.textContent = combo;
             startBtn.disabled = true;
             startBtn.textContent = '游戏进行中...';
             messageEl.textContent = '快打地鼠！';
@@ -230,7 +297,14 @@
             moles.forEach(mole => mole.classList.remove('up'));
             startBtn.disabled = false;
             startBtn.textContent = '再玩一次';
-            messageEl.textContent = `游戏结束！你得了 ${score} 分！`;
+
+            let rating = '';
+            if (score >= 25) rating = '神射手！🏆';
+            else if (score >= 15) rating = '非常厉害！👏';
+            else if (score >= 8) rating = '还不错哦！👍';
+            else rating = '再接再厉！💪';
+
+            messageEl.innerHTML = `游戏结束！你得了 <strong>${score}</strong> 分！${rating}`;
         }
     </script>
 </body>

@@ -78,7 +78,7 @@ Tool Registry
 
 ### 第三阶段：Windows 桌面 GUI
 
-目标：构建一个 Windows 本地桌面 GUI 客户端。GUI 直接复用 Python agent core，不通过 Web 前后端通信，也不把 agent 决策逻辑写进界面层。
+目标：构建一个 Windows 本地桌面 GUI 客户端。GUI 直接复用 Python agent core，不通过额外服务通信，也不把 agent 决策逻辑写进界面层。
 
 推荐布局：
 
@@ -143,7 +143,7 @@ code-agent/
 ├─ .env.example
 ├─ .gitignore
 │
-├─ backend/
+├─ agent/
 │  ├─ pyproject.toml
 │  ├─ src/
 │  │  └─ code_agent/
@@ -338,7 +338,7 @@ detail_panel.py  # 旧版详情面板，可保留为备用
 
 GUI 组件只处理展示和交互，不直接调用模型 API，不直接执行文件或命令工具。
 
-说明：此前尝试过的 `frontend/` Web 原型暂时作为实验产物保留，不作为当前主线。当前 GUI 主线切换为 Windows 桌面客户端。
+说明：当前 GUI 主线是 Windows 桌面客户端，界面层只负责展示和交互。
 
 ## 技术栈建议
 

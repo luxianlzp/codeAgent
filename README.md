@@ -1,6 +1,6 @@
 # Code Agent
 
-一个自研的简化版 coding agent。当前已经实现 CLI 最小闭环，后续主线是 Windows 桌面 GUI。
+一个自研的简化版 coding agent。项目提供命令行和 Windows 桌面客户端两种入口，二者共用同一套 agent 核心逻辑。
 
 ## 当前能力
 
@@ -15,7 +15,7 @@
 - 将工具结果回传给模型，继续下一轮决策。
 - 支持最大轮数和命令超时。
 - 限制文件访问在指定 workspace 内。
-- 输出结构化 trace，便于 CLI 展示和后续 Windows GUI 复用。
+- 输出结构化 trace，便于 CLI 展示和桌面客户端复用。
 - CLI 会边运行边输出事件，不需要等整个任务结束后才看到结果。
 
 ## 安装
@@ -23,7 +23,7 @@
 在你自己的 conda 环境中安装依赖：
 
 ```powershell
-cd backend
+cd agent
 python -m pip install -r requirements.txt
 ```
 
@@ -49,14 +49,14 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-请把 `OPENAI_API_KEY` 改成真实 key，不能保留 `.env.example` 里的占位值。CLI 会自动读取项目根目录、`backend` 目录或当前运行目录下的 `.env` 文件。已经存在的系统环境变量优先级更高，不会被 `.env` 覆盖。不要把真实 API key 提交到仓库。
+请把 `OPENAI_API_KEY` 改成真实 key，不能保留 `.env.example` 里的占位值。CLI 和桌面客户端会自动读取项目根目录、`agent` 目录或当前运行目录下的 `.env` 文件。已经存在的系统环境变量优先级更高，不会被 `.env` 覆盖。不要把真实 API key 提交到仓库。
 
 ## 运行 CLI
 
 推荐先在当前 conda 环境中安装本地包：
 
 ```powershell
-cd backend
+cd agent
 python -m pip install -e . --no-build-isolation
 code-agent --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
 ```
@@ -106,19 +106,12 @@ macOS / Linux shell 对应写法：
 PYTHONPATH=src python -m code_agent.cli --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
 ```
 
-## 测试
+## 运行 Windows 桌面客户端
+
+安装依赖并安装本地包后运行：
 
 ```powershell
-cd backend
-python -m pytest
-```
-
-## 运行 Windows GUI
-
-当前主线 GUI 已切换为 PySide6-Essentials 桌面客户端。安装依赖并安装本地包后运行：
-
-```powershell
-cd backend
+cd agent
 python -m pip install -r requirements.txt
 python -m pip install -e . --no-build-isolation
 code-agent-gui
@@ -131,16 +124,19 @@ $env:PYTHONPATH="src"
 python -m code_agent.gui.app
 ```
 
-GUI 可以交互运行：左侧是类似 Codex app 的项目侧边栏和运行设置，右侧顶部显示当前对话标题，底部是固定输入框。输入任务后点击右侧发送按钮，agent 会在后台线程执行，界面不会冻结；主区域以对话流形式实时展示用户任务、模型请求、action、工具调用和最终结果。工具参数、命令输出、文件 diff 或错误详情默认隐藏，点击消息里的 `Details` 才会展开。
+桌面客户端支持新建项目、选择项目文件夹，并在项目下创建多个对话。输入任务后点击发送按钮，agent 会在后台线程执行，界面不会冻结；主区域以对话流形式实时展示用户任务、模型请求、action、工具调用和最终结果。工具参数、命令输出、文件 diff 或错误详情默认隐藏，点击消息里的 `Details` 才会展开。
 
-## Web 前端说明
+## 测试
 
-`frontend/` 是此前尝试过的 Web GUI 实验原型，当前不是主线运行方式。现在优先维护 `code-agent-gui` 这个 Windows 桌面客户端。
+```powershell
+cd agent
+python -m pytest
+```
 
-## CLI 安全与日志
+## 安全与日志
 
 - `run_command` 会拦截明显危险的命令，例如 `rm`、`del`、`format`、`shutdown`、`git reset`、`git clean`、PowerShell `Remove-Item` 等。
-- `write_file` 会在 trace 中记录 unified diff，便于 CLI 展示和后续 GUI 展示文件变更。
-- `--trace-file` 会保存完整结构化 JSON，适合调试、录制视频和后续前端复用。
+- `write_file` 会在 trace 中记录 unified diff，便于 CLI 和桌面客户端展示文件变更。
+- `--trace-file` 会保存完整结构化 JSON，适合调试和录制视频。
 - `--verbose` 会显示完整模型响应和工具输出；默认模式只显示摘要。
 - `--no-color` 可以关闭彩色输出；`--json-trace` 始终输出纯 JSON。

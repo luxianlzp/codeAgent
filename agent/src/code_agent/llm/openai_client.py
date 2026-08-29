@@ -13,7 +13,7 @@ class OpenAICompatibleClient:
             from openai import OpenAI
         except ModuleNotFoundError as exc:
             raise RuntimeError(
-                "The openai package is not installed. Install backend dependencies first."
+                "The openai package is not installed. Install project dependencies first."
             ) from exc
 
         api_key = os.getenv("OPENAI_API_KEY")
