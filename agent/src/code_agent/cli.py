@@ -10,6 +10,7 @@ from code_agent.core import Agent, AgentConfig
 from code_agent.core.env import load_dotenv_files
 from code_agent.core.events import TraceEvent
 from code_agent.core.result import AgentRunResult
+from code_agent.skills import SkillError, SkillStore, parse_skill_references
 from code_agent.tools import build_default_registry
 from code_agent.workspace import Workspace
 
@@ -24,6 +25,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--verbose", "-v", action="store_true", help="Print full model responses and tool details.")
     parser.add_argument("--no-color", action="store_true", help="Disable ANSI colors in human-readable output.")
     parser.add_argument("--interactive", "-i", action="store_true", help="Keep the CLI open for multiple tasks.")
+    parser.add_argument("--skills-dir", help="Directory containing skills. Defaults to .code-agent/skills in the workspace.")
+    parser.add_argument("--skill", action="append", default=[], help="Enable a skill by name. Can be used more than once.")
+    parser.add_argument("--list-skills", action="store_true", help="List available skills and exit.")
+    parser.add_argument("--add-skill", metavar="NAME", help="Create a new skill template and exit.")
     return parser
 
 
@@ -213,6 +218,8 @@ def write_trace_file(result: AgentRunResult, trace_file: str) -> None:
 def run_task(
     agent: Agent,
     task: str,
+    skill_store: SkillStore,
+    requested_skills: list[str],
     json_trace: bool,
     verbose: bool,
     trace_file: str | None,
@@ -220,9 +227,14 @@ def run_task(
 ) -> bool:
     on_event = None if json_trace else lambda event: print_event(event, verbose, theme)
     try:
-        result = agent.run(task, on_event=on_event)
+        skill_names = requested_skills + parse_skill_references(task)
+        skills = skill_store.load(skill_names)
+        result = agent.run(task, on_event=on_event, skills=skills)
     except RuntimeError as exc:
         print(f"Runtime error: {exc}", file=sys.stderr)
+        return False
+    except SkillError as exc:
+        print(f"Skill error: {exc}", file=sys.stderr)
         return False
 
     if trace_file:
@@ -241,14 +253,38 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     theme = Theme(colors_enabled(args.no_color))
     task = " ".join(args.task).strip()
+
+    config = AgentConfig.from_env(max_steps=args.max_steps)
+    workspace = Workspace(Path(args.workspace))
+    skill_store = SkillStore(args.skills_dir) if args.skills_dir else SkillStore.default_for_workspace(workspace.root)
+
+    if args.add_skill:
+        try:
+            path = skill_store.create(args.add_skill)
+        except SkillError as exc:
+            print(f"Skill error: {exc}", file=sys.stderr)
+            return 2
+        print(f"Created skill: {path}")
+        return 0
+
+    if args.list_skills:
+        try:
+            skills = skill_store.list()
+        except SkillError as exc:
+            print(f"Skill error: {exc}", file=sys.stderr)
+            return 2
+        if not skills:
+            print("No skills found.")
+        for skill in skills:
+            print(f"{skill.name}\t{skill.path}")
+        return 0
+
     if not task and not args.interactive:
         task = input("Task: ").strip()
     if not task and not args.interactive:
         print("No task provided.", file=sys.stderr)
         return 2
 
-    config = AgentConfig.from_env(max_steps=args.max_steps)
-    workspace = Workspace(Path(args.workspace))
     tools = build_default_registry(workspace, config)
 
     from code_agent.llm.openai_client import OpenAICompatibleClient
@@ -265,16 +301,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{theme.paint('Interactive mode.', 'bold')} Type a task, or type :q to quit.")
         ok = True
         if task:
-            ok = run_task(agent, task, args.json_trace, args.verbose, args.trace_file, theme)
+            ok = run_task(agent, task, skill_store, args.skill, args.json_trace, args.verbose, args.trace_file, theme)
         while True:
             next_task = input("\nTask> ").strip()
             if next_task in {":q", ":quit", "exit", "quit"}:
                 return 0 if ok else 1
             if not next_task:
                 continue
-            ok = run_task(agent, next_task, args.json_trace, args.verbose, args.trace_file, theme) and ok
+            ok = run_task(agent, next_task, skill_store, args.skill, args.json_trace, args.verbose, args.trace_file, theme) and ok
 
-    return 0 if run_task(agent, task, args.json_trace, args.verbose, args.trace_file, theme) else 1
+    return 0 if run_task(agent, task, skill_store, args.skill, args.json_trace, args.verbose, args.trace_file, theme) else 1
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from code_agent.core.messages import Message
 from code_agent.core.prompts import SYSTEM_PROMPT
 from code_agent.core.result import AgentRunResult
 from code_agent.llm.base import LLMClient
+from code_agent.skills import Skill, format_skills_for_prompt
 from code_agent.tools.registry import ToolRegistry
 
 EventHandler = Callable[[TraceEvent], None]
@@ -25,7 +26,12 @@ class Agent:
         self._tools = tools
         self._config = config
 
-    def run(self, task: str, on_event: EventHandler | None = None) -> AgentRunResult:
+    def run(
+        self,
+        task: str,
+        on_event: EventHandler | None = None,
+        skills: list[Skill] | None = None,
+    ) -> AgentRunResult:
         events: list[TraceEvent] = []
 
         def emit(event: TraceEvent) -> None:
@@ -34,8 +40,11 @@ class Agent:
                 on_event(event)
 
         emit(TraceEvent("user_message", task))
+        active_skills = skills or []
+        for skill in active_skills:
+            emit(TraceEvent("skill", skill.name, {"path": str(skill.path)}))
         messages = [
-            Message("system", SYSTEM_PROMPT + "\n\nRegistered tools:\n" + self._tools.descriptions()),
+            Message("system", self._build_system_prompt(active_skills)),
             Message("user", task),
         ]
 
@@ -78,3 +87,13 @@ class Agent:
             chunks.append(chunk)
             emit(TraceEvent("model_delta", chunk, {"step": step}))
         return "".join(chunks)
+
+    def _build_system_prompt(self, skills: list[Skill]) -> str:
+        parts = [
+            SYSTEM_PROMPT,
+            "Registered tools:\n" + self._tools.descriptions(),
+        ]
+        skill_prompt = format_skills_for_prompt(skills)
+        if skill_prompt:
+            parts.append(skill_prompt)
+        return "\n\n".join(parts)

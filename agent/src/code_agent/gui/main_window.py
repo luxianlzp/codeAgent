@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QStatusBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDialog, QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QStatusBar, QVBoxLayout, QWidget
 
 from code_agent.core import AgentConfig
 from code_agent.gui.widgets.chat_panel import ChatPanel
 from code_agent.gui.widgets.composer import Composer
+from code_agent.gui.widgets.skill_dialog import SkillDialog
 from code_agent.gui.widgets.task_panel import TaskPanel
 from code_agent.gui.worker import AgentWorker
+from code_agent.skills import SkillError, SkillStore
 
 
 class MainWindow(QMainWindow):
@@ -51,6 +53,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
 
         self.composer.run_requested.connect(self._run_from_composer)
+        self.composer.skill_picker_requested.connect(self._open_skill_picker)
         self.task_panel.chat_changed.connect(self._switch_chat)
 
     def _build_header(self) -> QFrame:
@@ -63,13 +66,13 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.status_label)
         return header
 
-    def _run_from_composer(self, task: str) -> None:
+    def _run_from_composer(self, task: str, skill_names: list[str]) -> None:
         if self.task_panel.current_chat_title().startswith("新对话"):
             self.task_panel.rename_current_chat(task)
             self._update_header_title()
-        self._run_task(task, self.task_panel.workspace(), self.task_panel.max_step_count())
+        self._run_task(task, self.task_panel.workspace(), self.task_panel.max_step_count(), skill_names)
 
-    def _run_task(self, task: str, workspace: str, max_steps: int) -> None:
+    def _run_task(self, task: str, workspace: str, max_steps: int, skill_names: list[str]) -> None:
         if not task:
             QMessageBox.warning(self, "Missing task", "Please enter a task.")
             return
@@ -86,7 +89,7 @@ class MainWindow(QMainWindow):
 
         config = AgentConfig.from_env(max_steps=max_steps)
         self._thread = QThread(self)
-        self._worker = AgentWorker(task=task, workspace=workspace, config=config)
+        self._worker = AgentWorker(task=task, workspace=workspace, config=config, skill_names=skill_names)
         self._worker.moveToThread(self._thread)
 
         self._thread.started.connect(self._worker.run)
@@ -134,3 +137,23 @@ class MainWindow(QMainWindow):
 
     def _update_header_title(self) -> None:
         self.title_label.setText(self.task_panel.current_chat_title())
+
+    def _open_skill_picker(self) -> None:
+        workspace = self.task_panel.workspace()
+        if not workspace:
+            QMessageBox.warning(self, "Missing workspace", "Please choose a workspace.")
+            return
+
+        try:
+            skills = SkillStore.default_for_workspace(workspace).list()
+        except SkillError as exc:
+            QMessageBox.warning(self, "Skill error", str(exc))
+            return
+
+        if not skills:
+            QMessageBox.information(self, "No skills", "当前工作目录没有可用 Skill。")
+            return
+
+        dialog = SkillDialog(skills, self.composer.selected_skills(), self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.composer.set_selected_skills(dialog.selected_skill_names())

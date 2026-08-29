@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from code_agent.core import Agent, AgentAction, AgentConfig
 from code_agent.core.messages import Message
+from code_agent.skills import Skill
 from code_agent.tools import build_default_registry
 from code_agent.workspace import Workspace
 
@@ -89,6 +90,21 @@ def test_agent_streams_model_deltas_before_parsing_action(tmp_path) -> None:
     assert [event.message for event in deltas] == ['{"action":"finish","args":', '{"message":"streamed done"}}']
     assert result.status == "finished"
     assert result.final_message == "streamed done"
+
+
+def test_agent_adds_active_skills_to_system_prompt(tmp_path) -> None:
+    llm = FakeLLM(['{"action":"finish","args":{"message":"done"}}'])
+    workspace = Workspace(tmp_path)
+    config = AgentConfig(max_steps=3)
+    agent = Agent(llm=llm, tools=build_default_registry(workspace, config), config=config)
+    skill = Skill("testing", tmp_path / "testing.md", "Always run the focused tests.")
+
+    result = agent.run("Stop.", skills=[skill])
+
+    assert result.ok is True
+    assert "Active skills" in llm.messages[0][0].content
+    assert "Always run the focused tests." in llm.messages[0][0].content
+    assert any(event.kind == "skill" and event.message == "testing" for event in result.events)
 
 
 def test_action_parser_normalizes_missing_args() -> None:

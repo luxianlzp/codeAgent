@@ -175,6 +175,29 @@ QPushButton#SendButton {
     font-weight: 700;
 }
 
+QPushButton#SkillButton {
+    background: #ffffff;
+    color: #202124;
+    border: 1px solid #dcdcdc;
+    border-radius: 14px;
+    min-width: 28px;
+    max-width: 28px;
+    min-height: 28px;
+    max-height: 28px;
+    padding: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+QLabel#SkillBadge {
+    background: #eef2ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
 QPushButton#SendButton:disabled,
 QPushButton:disabled {
     background: #f3f4f6;

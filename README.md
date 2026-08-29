@@ -106,6 +106,53 @@ macOS / Linux shell 对应写法：
 PYTHONPATH=src python -m code_agent.cli --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
 ```
 
+## Skills
+
+Skill 是一段可复用的 Markdown 指令，用来给 agent 补充特定场景的工作方式。默认 skill 目录位于当前 workspace 下：
+
+```text
+.code-agent/skills/
+```
+
+可以创建一个新 skill 模板：
+
+```powershell
+code-agent --workspace ../examples/demo_workspace --add-skill python-review
+```
+
+生成的文件路径类似：
+
+```text
+../examples/demo_workspace/.code-agent/skills/python-review/SKILL.md
+```
+
+也可以手动添加 skill。支持两种形式：
+
+```text
+.code-agent/skills/python-review/SKILL.md
+.code-agent/skills/python-review.md
+```
+
+查看当前 workspace 可用的 skill：
+
+```powershell
+code-agent --workspace ../examples/demo_workspace --list-skills
+```
+
+运行任务时可以显式指定 skill：
+
+```powershell
+code-agent --workspace ../examples/demo_workspace --skill python-review "Review calculator.py and run focused tests."
+```
+
+也可以在任务文本里用 `@skill-name` 指定。CLI 和桌面客户端都会识别这种写法：
+
+```powershell
+code-agent --workspace ../examples/demo_workspace "Use @python-review to review calculator.py."
+```
+
+当前 skill 只作为模型指令注入，不会执行任意 Python 代码，也不会绕过 workspace 文件访问限制和工具规则。
+
 ## 运行 Windows 桌面客户端
 
 安装依赖并安装本地包后运行：
@@ -125,6 +172,8 @@ python -m code_agent.gui.app
 ```
 
 桌面客户端支持新建项目、选择项目文件夹，并在项目下创建多个对话。输入任务后点击发送按钮，agent 会在后台线程执行，界面不会冻结；主区域以对话流形式实时展示用户任务、模型请求、action、工具调用和最终结果。工具参数、命令输出、文件 diff 或错误详情默认隐藏，点击消息里的 `Details` 才会展开。
+
+输入框左上角的 `+` 按钮会打开 Skill 选择窗口，窗口中会列出当前项目工作目录下 `.code-agent/skills/` 里的所有 skill。勾选后发送任务，本次运行会自动加载这些 skill；仍然可以在任务文本里继续使用 `@skill-name`。
 
 ## 测试
 
