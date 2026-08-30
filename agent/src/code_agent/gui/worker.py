@@ -14,6 +14,10 @@ from code_agent.tools import build_default_registry
 from code_agent.workspace import Workspace
 
 
+class AgentStopped(Exception):
+    pass
+
+
 class AgentWorker(QObject):
     event = Signal(dict)
     finished = Signal(dict)
@@ -25,6 +29,7 @@ class AgentWorker(QObject):
         self._workspace = workspace
         self._config = config
         self._skill_names = skill_names or []
+        self._stop_requested = False
 
     @Slot()
     def run(self) -> None:
@@ -37,8 +42,16 @@ class AgentWorker(QObject):
             skills = skill_store.load(self._skill_names + parse_skill_references(self._task))
             result = agent.run(self._task, on_event=self._emit_event, skills=skills)
             self.finished.emit(result.to_dict())
+        except AgentStopped:
+            self.finished.emit({"status": "stopped", "message": "Task stopped by user."})
         except Exception:
             self.failed.emit(traceback.format_exc())
 
+    @Slot()
+    def request_stop(self) -> None:
+        self._stop_requested = True
+
     def _emit_event(self, event: TraceEvent) -> None:
+        if self._stop_requested:
+            raise AgentStopped()
         self.event.emit(event.to_dict())

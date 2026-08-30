@@ -7,43 +7,36 @@ def bubble_sort(arr):
     n = len(arr)
     # 外层循环控制遍历次数
     for i in range(n):
-        # 内层循环进行相邻元素比较和交换
-        # 每次遍历后，最大的元素会"冒泡"到末尾
+        # 标记是否发生交换，用于优化
+        swapped = False
+        # 内层循环进行相邻元素比较
+        # 每次遍历后，最大的元素会"冒泡"到末尾，所以范围逐渐减小
         for j in range(0, n - i - 1):
             if arr[j] > arr[j + 1]:
                 # 交换相邻元素
                 arr[j], arr[j + 1] = arr[j + 1], arr[j]
-    return arr
-
-
-def bubble_sort_optimized(arr):
-    """
-    优化版冒泡排序
-    如果某一轮没有发生交换，说明数组已经有序，提前退出
-    """
-    n = len(arr)
-    for i in range(n):
-        swapped = False
-        for j in range(0, n - i - 1):
-            if arr[j] > arr[j + 1]:
-                arr[j], arr[j + 1] = arr[j + 1], arr[j]
                 swapped = True
-        # 如果没有发生交换，提前结束
+        # 如果没有发生交换，说明数组已经有序，提前退出
         if not swapped:
             break
     return arr
 
 
 if __name__ == "__main__":
-    # 测试数据
-    test_data = [64, 34, 25, 12, 22, 11, 90]
-    print(f"原始数组: {test_data}")
-    
-    sorted_data = bubble_sort(test_data.copy())
-    print(f"排序结果: {sorted_data}")
-    
-    # 测试优化版本（近乎有序的数组）
-    nearly_sorted = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
-    print(f"\n近乎有序数组: {nearly_sorted}")
-    sorted_optimized = bubble_sort_optimized(nearly_sorted.copy())
-    print(f"优化排序结果: {sorted_optimized}")
+    # 测试冒泡排序
+    test_array = [64, 34, 25, 12, 22, 11, 90]
+    print(f"原始数组: {test_array}")
+    sorted_array = bubble_sort(test_array.copy())
+    print(f"排序后数组: {sorted_array}")
+
+    # 测试已经有序的数组
+    sorted_test = [1, 2, 3, 4, 5]
+    print(f"\n已排序数组: {sorted_test}")
+    result = bubble_sort(sorted_test.copy())
+    print(f"排序后数组: {result}")
+
+    # 测试包含重复元素的数组
+    duplicate_test = [3, 1, 4, 1, 5, 9, 2, 6, 5]
+    print(f"\n含重复元素数组: {duplicate_test}")
+    result = bubble_sort(duplicate_test.copy())
+    print(f"排序后数组: {result}")

@@ -25,3 +25,6 @@ code-agent-gui = "code_agent.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"code_agent.gui" = ["qml/*.qml"]
