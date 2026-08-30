@@ -5,7 +5,7 @@
 
 ## 一、总体结论
 
-项目已经完成一个自研简化版 coding agent 的核心闭环，并且完成了 CLI、Skills、Windows 桌面 GUI、GUI 任务历史持久化和基础测试覆盖。
+项目已经完成一个自研简化版 coding agent 的核心闭环，并且完成了 CLI、Skills、Windows 桌面 GUI、GUI 任务历史持久化、最终结果 Markdown 渲染和基础测试覆盖。
 
 当前项目已经从“核心功能实现”进入“最终体验打磨和交付准备”阶段。下一步重点不再是重写 Agent Core，而是继续优化 GUI 细节、清理演示 workspace 产物、整理 README.txt、录制演示视频和准备答辩材料。
 
@@ -29,6 +29,8 @@ codeAgent/
 │  │  ├─ workspace/  # workspace 路径和沙箱限制
 │  │  ├─ skills/     # Skill 发现、加载和引用解析
 │  │  ├─ gui/        # PySide6 / QML 桌面客户端
+│  │  │  ├─ qml/     # QML 主界面
+│  │  │  └─ markdown.py # GUI 最终结果 Markdown / 代码高亮渲染
 │  │  └─ cli.py      # CLI 入口
 │  ├─ tests/         # Agent、CLI、工具、沙箱、Skills、GUI 历史测试
 │  ├─ pyproject.toml
@@ -92,6 +94,8 @@ codeAgent/
 - 新建或切换项目后，标题区和输入框中的项目名会同步更新。
 - 窗口尺寸已经调得更紧凑：默认约 `1040x700`，最小约 `780x540`。
 - 用户输入的 Task 气泡已按内容收缩，避免短提示词占满主区域。
+- 最终 `Completed / finish` 结果支持 Markdown 渲染和代码块高亮。
+- Tool Call、Tool Result、Terminal 输出仍保持纯文本，避免命令输出被 Markdown 误解析。
 - 已处理 Qt Quick Controls native style 自定义警告，当前使用 Basic style。
 - 已处理 `Fixedsys` 字体警告来源，QML 终端字体改为更稳的 `Courier New`。
 
@@ -102,13 +106,24 @@ codeAgent/
 - 下次打开同一项目时，左侧对话列表会自动加载最近历史任务。
 - 同一个对话中连续提问时，会保留之前的问题和结果，不再被后一个任务覆盖。
 - 新增 `RunHistoryStore`，并增加 GUI 历史相关测试。
+- 新历史记录会保存 `summaryHtml`，因此最终结果中的 Markdown 代码块可以高亮展示。
+- 旧历史记录没有 `summaryHtml` 字段，会回退为纯文本显示；当前不修这个兼容显示差异。
+
+### 最终结果 Markdown / 代码高亮
+
+- 新增 `agent/src/code_agent/gui/markdown.py`。
+- `qml_bridge.py` 会为 `finish` 事件生成 `summaryHtml`。
+- `Main.qml` 会优先渲染 `summaryHtml`，使用 Qt RichText 展示最终结果。
+- 支持标题、列表、加粗、行内代码和 fenced code block。
+- 代码块支持 `python`、`js/javascript`、`ts/typescript`、`html/xml/qml`、`css` 的轻量语法高亮。
+- 新增 `agent/tests/test_gui_markdown.py`，覆盖 Markdown 渲染和 QML 事件 HTML 注入。
 
 ## 五、验证情况
 
 已在当前 conda 环境完成完整测试：
 
 ```text
-28 passed in 0.45s
+31 passed in 0.48s
 ```
 
 覆盖范围包括：
@@ -116,6 +131,7 @@ codeAgent/
 - Agent loop
 - CLI
 - GUI 任务历史
+- GUI 最终结果 Markdown / 代码高亮
 - OpenAI 兼容客户端
 - Skills
 - Tool Registry
@@ -153,9 +169,10 @@ code-agent-gui
 - `agent/src/code_agent/gui/widgets/skill_dialog.py`
 - `agent/src/code_agent/gui/history.py`
 - `agent/tests/test_gui_history.py`
-- `agent/tests/test_agent_loop.py`
+- `agent/src/code_agent/gui/markdown.py`
+- `agent/tests/test_gui_markdown.py`
 
-这些修改主要对应 QML GUI、美化、历史持久化、流式输出稳定性和测试修正。
+这些修改主要对应 QML GUI、美化、历史持久化、最终结果 Markdown / 代码高亮、流式输出稳定性和测试修正。
 
 ### 演示 workspace 产物
 
@@ -186,7 +203,8 @@ code-agent-gui
 | Skills | 已完成 | 演示中可选用一个 Skill 加分 |
 | Windows GUI | 已完成并持续美化 | 做真实窗口验收和录屏 |
 | 任务历史持久化 | 已完成 | 决定是否展示历史文件 |
-| 测试 | 当前 28 passed | 提交前再跑一次 |
+| 最终结果 Markdown / 代码高亮 | 已完成 | 在真实 GUI 中人工检查显示效果 |
+| 测试 | 当前 31 passed | 提交前再跑一次 |
 | Git 提交历史 | 已保留 | 提交前清理工作区并 commit |
 | README.txt | 尚未生成 | 从 README.md / 本文件整理 |
 | Git 仓库地址 | 待最终确认 | 写入 README.txt |
@@ -205,7 +223,7 @@ code-agent-gui
 7. 录制 2 分钟以内演示视频，重点展示：
 
    ```text
-   用户任务 -> Agent Thinking / Activity -> Tool Call -> Tool Result -> Completed -> 历史记录保留
+   用户任务 -> Agent Thinking / Activity -> Tool Call -> Tool Result -> Markdown Completed -> 历史记录保留
    ```
 
 8. 全仓库扫描敏感信息，确认没有 API key、日志、缓存或个人隐私路径泄露。
@@ -214,6 +232,18 @@ code-agent-gui
 
 ## 九、最终判断
 
-当前项目核心已经比较完整：Agent Core、工具系统、workspace 安全、CLI、Skills、QML GUI 和任务历史持久化都已实现，并通过现有自动化测试。
+当前项目核心已经比较完整：Agent Core、工具系统、workspace 安全、CLI、Skills、QML GUI、任务历史持久化和最终结果 Markdown / 代码高亮都已实现，并通过现有自动化测试。
 
 后续最有价值的提升点是：稳定 GUI 体验、清理提交内容、补齐交付材料，并把演示视频录得清楚专业。项目现在适合进入下一步计划和最终验收准备。
+
+## 十、新对话交接说明
+
+如果开启新对话，可以直接基于以下事实继续：
+
+- 项目路径：`D:\code\se\CodeAgent\codeAgent`。
+- 现在暂时不做“自动测试 -> 修复 -> 再测试”的强制验证功能，该功能已由用户回退。
+- GUI 保持浅色主题，不要改成深色，也不要大幅改变原有新建项目、项目列表、对话列表和底部输入框的操作逻辑。
+- GUI 当前重点能力是：QML 界面、项目/对话管理、Skills 选择、执行过程折叠、Tool 详情展开、任务历史持久化、最终结果 Markdown / 代码高亮。
+- 旧历史记录不会高亮，因为旧记录没有 `summaryHtml`；当前接受这个现状，不需要修。
+- 提交前要注意 `examples/demo2/.code-agent/runs/` 里的运行记录属于 demo 产物，是否保留需要单独决定。
+- 下一步适合做真实 GUI 人工验收、更新 README.txt、清理提交内容、录制演示视频和准备最终 ZIP。
