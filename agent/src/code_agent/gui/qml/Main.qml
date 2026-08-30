@@ -53,6 +53,7 @@ ApplicationWindow {
             kind: String(event.kind || "event"),
             label: String(event.label || "Event"),
             summary: String(event.summary || ""),
+            summaryHtml: String(event.summaryHtml || ""),
             detail: String(event.detail || ""),
             status: String(event.status || ""),
             execution: event.execution === true,
@@ -436,6 +437,7 @@ ApplicationWindow {
                         readonly property string eventKind: model.kind || "event"
                         readonly property string eventLabel: model.label || "Event"
                         readonly property string eventSummary: model.summary || ""
+                        readonly property string eventSummaryHtml: model.summaryHtml || ""
                         readonly property string eventDetail: model.detail || ""
                         readonly property string eventStatus: model.status || ""
                         readonly property bool eventExecution: model.execution === true
@@ -493,10 +495,12 @@ ApplicationWindow {
                                 Text {
                                     id: summaryText
                                     Layout.fillWidth: true
-                                    text: row.eventSummary
+                                    text: row.eventSummaryHtml.length > 0 ? row.eventSummaryHtml : row.eventSummary
                                     color: fg
                                     wrapMode: Text.Wrap
-                                    textFormat: Text.PlainText
+                                    textFormat: row.eventSummaryHtml.length > 0 ? Text.RichText : Text.PlainText
+                                    linkColor: accent
+                                    onLinkActivated: function(link) { Qt.openUrlExternally(link) }
                                     font.pixelSize: 14
                                     font.family: row.eventTerminal ? "Courier New" : "Microsoft YaHei"
                                 }

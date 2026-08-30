@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from code_agent.core import AgentConfig
 from code_agent.core.env import load_dotenv_files
 from code_agent.gui.history import RunHistoryStore
+from code_agent.gui.markdown import render_final_markdown_html
 from code_agent.gui.widgets.chat_panel import _detail_for_event, _event_data, _label_for_kind, _summary_for_event
 from code_agent.gui.worker import AgentWorker
 from code_agent.gui.widgets.skill_dialog import SkillDialog
@@ -278,6 +279,7 @@ class QmlController(QObject):
             "kind": kind,
             "label": self._label_for_event(event),
             "summary": self._summary_for_event(event),
+            "summaryHtml": self._summary_html_for_event(event),
             "detail": self._detail_for_event(event),
             "status": self._event_status(event),
             "execution": kind in {"model_request", "model_delta", "action", "tool_call", "tool_result"},
@@ -303,6 +305,7 @@ class QmlController(QObject):
                 "kind": "model_delta",
                 "label": "Thinking",
                 "summary": chunk,
+                "summaryHtml": "",
                 "detail": "",
                 "status": "Running",
                 "execution": True,
@@ -510,6 +513,12 @@ class QmlController(QObject):
         if kind == "error":
             return message
         return _summary_for_event(event)
+
+    @classmethod
+    def _summary_html_for_event(cls, event: dict) -> str:
+        if str(event.get("kind", "event")) != "finish":
+            return ""
+        return render_final_markdown_html(cls._summary_for_event(event))
 
     @staticmethod
     def _tool_call_summary(tool: str, args: dict) -> str:
