@@ -13,6 +13,7 @@ ApplicationWindow {
     title: "Code Agent"
     color: pageBg
     font.family: "Microsoft YaHei"
+    property bool showExecution: false
 
     readonly property color pageBg: "#f6f7f9"
     readonly property color mainBg: "#fbfbfc"
@@ -89,6 +90,7 @@ ApplicationWindow {
     Connections {
         target: Backend
         function onEventsReset(payload) {
+            window.showExecution = false
             window.resetEvents(window.parseEvents(payload))
         }
         function onEventAdded(payload) {
@@ -385,13 +387,18 @@ ApplicationWindow {
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
-                            Text {
-                                text: Backend.currentProjectName + " · " + Backend.model
+                        Text {
+                            text: Backend.currentProjectName + " · " + Backend.model
                                 color: muted
                                 font.pixelSize: 12
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
+                        }
+                        SmallButton {
+                            text: window.showExecution ? "隐藏过程" : "显示过程"
+                            visible: eventModel.count > 0 && !Backend.running
+                            onClicked: window.showExecution = !window.showExecution
                         }
                         Rectangle {
                             radius: 999
@@ -417,7 +424,7 @@ ApplicationWindow {
                     Layout.fillHeight: true
                     model: eventModel
                     clip: true
-                    spacing: 8
+                    spacing: 0
                     leftMargin: 72
                     rightMargin: 72
                     topMargin: 22
@@ -435,8 +442,8 @@ ApplicationWindow {
                         readonly property bool eventTerminal: model.terminal === true
                         readonly property bool isUser: eventKind === "user_message"
                         readonly property bool isExpanded: detailsToggle.checked
-                        visible: Backend.running || !row.eventExecution || row.eventKind === "finish" || row.eventKind === "error"
-                        height: visible ? card.implicitHeight : 0
+                        visible: Backend.running || window.showExecution || !row.eventExecution || row.eventKind === "finish" || row.eventKind === "error"
+                        height: visible ? card.implicitHeight + 8 : 0
 
                         Rectangle {
                             id: card

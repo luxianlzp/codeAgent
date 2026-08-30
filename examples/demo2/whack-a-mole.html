@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打地鼠小游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .info-panel {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+        .info-panel span {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 120px);
+            grid-template-rows: repeat(3, 120px);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .hole {
+            width: 120px;
+            height: 120px;
+            background: #5d4037;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        .mole {
+            width: 80px;
+            height: 80px;
+            background: #8d6e63;
+            border-radius: 50%;
+            position: absolute;
+            bottom: -100%;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+        .mole::before, .mole::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #333;
+            border-radius: 50%;
+            top: 25px;
+        }
+        .mole::before { left: 20px; }
+        .mole::after { right: 20px; }
+        .mole .nose {
+            position: absolute;
+            width: 16px;
+            height: 12px;
+            background: #3e2723;
+            border-radius: 50%;
+            top: 40px;
+        }
+        .mole.up {
+            bottom: 10px;
+        }
+        .mole.hit {
+            background: #e53935;
+            transform: translateX(-50%) scale(0.9);
+        }
+        .btn {
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            background: #ffca28;
+            color: #333;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .overlay.hidden {
+            display: none;
+        }
+        .overlay h2 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .overlay p {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔨 打地鼠</h1>
+    <div class="info-panel">
+        <span>得分: <strong id="score">0</strong></span>
+        <span>时间: <strong id="time">30</strong> 秒</span>
+    </div>
+    <div class="game-board" id="board">
+        <div class="hole" data-index="0"><div class="mole"><div class="nose"></div></div></div>
+        <div class="hole" data-index="1"><div class="mole"><div class="nose"></div></div></div>
+        <div class="hole" data-index="2"><div class="mole"><div class="nose"></div></div></div>
+        <div class="hole" data-index="3"><div class="mole"><div class="nose"></div></div></div>
+        <div class="hole" data-index="4"><div class="mole"><div class="nose"></div></div></div>
+        <div class="hole" data-index="5"><div class="mole"><div class="nose"></div></div></div>
+        <div class="hole" data-index="6"><div class="mole"><div class="nose"></div></div></div>
+        <div class="hole" data-index="7"><div class="mole"><div class="nose"></div></div></div>
+        <div class="hole" data-index="8"><div class="mole"><div class="nose"></div></div></div>
+    </div>
+    <button class="btn" id="startBtn">开始游戏</button>
+
+    <div class="overlay hidden" id="overlay">
+        <h2>游戏结束!</h2>
+        <p>最终得分: <span id="finalScore">0</span></p>
+        <button class="btn" id="restartBtn">再玩一次</button>
+    </div>
+
+    <script>
+        const holes = document.querySelectorAll('.hole');
+        const moles = document.querySelectorAll('.mole');
+        const scoreEl = document.getElementById('score');
+        const timeEl = document.getElementById('time');
+        const startBtn = document.getElementById('startBtn');
+        const overlay = document.getElementById('overlay');
+        const finalScoreEl = document.getElementById('finalScore');
+        const restartBtn = document.getElementById('restartBtn');
+
+        let score = 0;
+        let timeLeft = 30;
+        let gameActive = false;
+        let moleTimer = null;
+        let countdownTimer = null;
+        let lastHole = null;
+
+        function randomTime(min, max) {
+            return Math.round(Math.random() * (max - min) + min);
+        }
+
+        function randomHole() {
+            const idx = Math.floor(Math.random() * holes.length);
+            const hole = holes[idx];
+            if (hole === lastHole) return randomHole();
+            lastHole = hole;
+            return hole;
+        }
+
+        function peep() {
+            const time = randomTime(600, 1200);
+            const hole = randomHole();
+            const mole = hole.querySelector('.mole');
+            mole.classList.add('up');
+            mole.classList.remove('hit');
+            moleTimer = setTimeout(() => {
+                mole.classList.remove('up');
+                if (gameActive) peep();
+            }, time);
+        }
+
+        function startGame() {
+            score = 0;
+            timeLeft = 30;
+            gameActive = true;
+            scoreEl.textContent = score;
+            timeEl.textContent = timeLeft;
+            startBtn.style.display = 'none';
+            overlay.classList.add('hidden');
+            peep();
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                timeEl.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(countdownTimer);
+            clearTimeout(moleTimer);
+            moles.forEach(m => m.classList.remove('up'));
+            finalScoreEl.textContent = score;
+            overlay.classList.remove('hidden');
+            startBtn.style.display = 'inline-block';
+        }
+
+        function bonk(e) {
+            if (!e.isTrusted) return;
+            const mole = this.querySelector('.mole');
+            if (!mole.classList.contains('up') || mole.classList.contains('hit')) return;
+            mole.classList.add('hit');
+            mole.classList.remove('up');
+            score++;
+            scoreEl.textContent = score;
+        }
+
+        holes.forEach(hole => hole.addEventListener('click', bonk));
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+    </script>
+</body>
+</html>

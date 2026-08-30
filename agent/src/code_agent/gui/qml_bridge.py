@@ -154,6 +154,7 @@ class QmlController(QObject):
             existing["chats"].append(self._make_chat("新对话 1"))
         self._current_chat = existing["chats"][0]["id"]
         self._events = list(self._chat_events.get(self._current_chat, []))
+        self.projectsChanged.emit()
         self.workspaceChanged.emit()
         self.chatsChanged.emit()
         self.currentChatChanged.emit()
