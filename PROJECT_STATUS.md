@@ -1,19 +1,21 @@
 # Code Agent 项目整体状态
 
-> 更新时间：2026-08-29
+> 更新时间：2026-08-30
 > 当前分支：`main`
 
 ## 一、总体结论
 
-项目已经完成一个自研简化版 coding agent 的核心闭环，目前处于“功能基本完成、提交前验收和材料整理”阶段。
+项目已经完成一个自研简化版 coding agent 的核心闭环，并且完成了 CLI、Skills、Windows 桌面 GUI、GUI 任务历史持久化和基础测试覆盖。
 
-核心能力已经具备，主要剩余工作集中在：目标环境中的完整测试、Windows GUI 实机验证、最终 README.txt、演示视频、压缩包和答辩准备。
+当前项目已经从“核心功能实现”进入“最终体验打磨和交付准备”阶段。下一步重点不再是重写 Agent Core，而是继续优化 GUI 细节、清理演示 workspace 产物、整理 README.txt、录制演示视频和准备答辩材料。
 
 ## 二、项目定位
 
-项目是一个不依赖现成 agent 框架的 Python coding agent，提供 CLI 和 Windows 桌面 GUI 两种入口。CLI 与 GUI 共用同一套 Agent Core，GUI 只负责界面展示、用户交互和后台任务调度。
+Code Agent 是一个不依赖现成 agent 框架的 Python coding agent，提供 CLI 和 Windows 桌面 GUI 两种入口。
 
-项目不再采用前端/后端拆分结构，主代码目录为 `agent/`，原 Web 前端实验代码已经删除。
+CLI 与 GUI 共用同一套 Agent Core。GUI 只负责界面展示、用户交互、任务调度、事件展示和历史记录加载，不直接包含模型决策、工具执行或 workspace 安全逻辑。
+
+当前 GUI 的产品方向已经明确：不是传统 IDE，也不是普通聊天软件，而是一个以 Agent 任务执行为核心的桌面工作台。
 
 ## 三、当前代码结构
 
@@ -26,9 +28,9 @@ codeAgent/
 │  │  ├─ tools/      # 工具基类、注册表、文件工具、命令工具
 │  │  ├─ workspace/  # workspace 路径和沙箱限制
 │  │  ├─ skills/     # Skill 发现、加载和引用解析
-│  │  ├─ gui/        # PySide6 Windows 桌面客户端
+│  │  ├─ gui/        # PySide6 / QML 桌面客户端
 │  │  └─ cli.py      # CLI 入口
-│  ├─ tests/         # Agent、CLI、工具、沙箱、Skills 等测试
+│  ├─ tests/         # Agent、CLI、工具、沙箱、Skills、GUI 历史测试
 │  ├─ pyproject.toml
 │  └─ requirements.txt
 ├─ examples/         # demo_workspace 和 demo2
@@ -44,12 +46,12 @@ codeAgent/
 
 ### Agent Core
 
-- 用户任务读取和对话上下文管理。
-- 模型请求、响应、Action 解析和 agent loop。
-- 模型决策 -> 工具调用 -> 工具结果回传 -> 继续决策的完整循环。
-- `finish` 主动结束任务，达到最大步骤数时停止。
-- 工具异常和模型错误能够回传，不会直接导致主循环无提示崩溃。
-- 结构化 `TraceEvent` 支持 `user_message`、`model_request`、`tool_call`、`tool_result`、`finish`、`error` 等事件。
+- 支持用户任务读取、对话上下文构造和模型请求。
+- 支持模型响应解析、Action 解析和 agent loop。
+- 支持模型决策 -> 工具调用 -> 工具结果回传 -> 继续决策的完整循环。
+- 支持 `finish` 主动结束任务，达到最大步骤数时停止。
+- 工具异常和模型错误会转换为事件回传，不会无提示崩溃。
+- 结构化 `TraceEvent` 已支持 `user_message`、`model_request`、`model_delta`、`tool_call`、`tool_result`、`finish`、`error` 等事件。
 
 ### 工具和安全
 
@@ -58,7 +60,7 @@ codeAgent/
 - `write_file`：写入 workspace 内文件并记录 diff。
 - `run_command`：在 workspace 中执行命令，捕获 stdout、stderr 和退出码。
 - 所有文件路径经过 workspace 沙箱校验，限制访问 workspace 外部路径。
-- 对 `rm`、`del`、`format`、`shutdown`、`git reset`、`git clean`、PowerShell `Remove-Item` 等明显危险命令进行拦截。
+- 对 `rm`、`del`、`format`、`shutdown`、`git reset`、`git clean`、PowerShell `Remove-Item` 等危险命令进行拦截。
 
 ### CLI
 
@@ -73,93 +75,145 @@ codeAgent/
 - 支持 `SKILL.md` 和单文件 Skill。
 - 支持 CLI 参数指定 Skill，也支持任务中的 `@skill-name` 引用。
 - GUI 支持通过 Skill 选择窗口加载 Skill。
+- Skill 选择弹窗已经做浅色现代化样式优化，支持清晰标题、说明、数量 badge、hover/selected 状态和应用/取消按钮。
 - Skill 只作为模型指令注入，不绕过工具和 workspace 安全规则。
 
 ### Windows GUI
 
-- 使用 PySide6-Essentials 构建桌面客户端。
-- 支持项目创建、项目文件夹选择和项目下多对话管理。
-- 左侧显示对话历史、当前项目、Workspace、Max Steps 和 Model。
-- 主区域展示用户任务、Agent 回复、Action、Tool Call、Tool Result 和最终输出。
-- Tool Call/Tool Result 使用独立卡片，并显示 Running、Success 或 Error 状态。
-- 支持无对话空状态和示例任务。
-- 支持底部多行任务输入框、发送按钮和 Skill 选择。
-- 通过 `QThread + AgentWorker` 在后台运行 Agent，避免阻塞 GUI 主线程。
-- Trace event 通过 Qt signal 回传主线程实时展示。
-- 任务完成后隐藏中间执行过程，只保留最终输出；错误事件仍然显示。
-- 底部状态栏显示 Connected、Running、Finished、Model 和当前 Step 等状态。
-- GUI 仅调用 Agent Core，不包含模型决策、文件操作或命令执行逻辑。
+- 当前 GUI 入口使用 PySide6 Qt Quick/QML，命令为 `code-agent-gui`。
+- 保留原有大致操作逻辑：新建项目、选择项目文件夹、项目下新建对话、选择 Skills、设置 Max Steps、输入任务并运行。
+- 左侧 Sidebar 显示 Code Agent 名称、新建项目、项目列表、对话列表、workspace、Skills 和 Max Steps。
+- 右侧主区域显示当前任务标题、当前项目、模型、运行状态、用户任务、Agent 输出、工具过程和最终结果。
+- 底部 Prompt Composer 支持多行输入，显示当前项目和模型，发送按钮使用简洁箭头。
+- Agent 在后台 `QThread + AgentWorker` 中运行，GUI 主线程只负责界面和信号处理。
+- 模型流式输出通过 Qt signal 增量更新，并做了节流，避免频繁刷新导致明显卡顿。
+- 任务完成后默认折叠中间执行过程，只展示用户任务、最终结果和错误；用户可以点击“显示过程”查看中间 Activity / Tool Call / Tool Result。
+- Tool Result 详情默认隐藏，点击“查看详情”后展开；命令结果使用终端风格展示。
+- 新建或切换项目后，标题区和输入框中的项目名会同步更新。
+- 窗口尺寸已经调得更紧凑：默认约 `1040x700`，最小约 `780x540`。
+- 用户输入的 Task 气泡已按内容收缩，避免短提示词占满主区域。
+- 已处理 Qt Quick Controls native style 自定义警告，当前使用 Basic style。
+- 已处理 `Fixedsys` 字体警告来源，QML 终端字体改为更稳的 `Courier New`。
 
-## 五、文档和 Git 状态
+### 任务历史持久化
 
-- 根目录 `README.md` 已覆盖安装、配置、CLI、GUI、Skills、安全限制和测试方式。
-- `PLAN.md` 记录了项目目标、架构、阶段计划、验收标准和风险点。
-- `PROJECT_GAP_ANALYSIS.md` 已根据题目 PDF 对照项目完成度和提交差距。
-- Git 提交历史保留，当前分支为 `main`，此前提交已同步到 `origin/main`。
-- 当前检查时工作区新增了未跟踪文件 `PROJECT_GAP_ANALYSIS.md`；提交前应确认是否一起提交。
+- GUI 任务完成或失败后，会将运行记录保存到当前 workspace 的 `.code-agent/runs/` 目录。
+- 历史记录包含任务标题、workspace、model、max steps、状态、最终输出、选中的 Skills、界面事件和原始 trace。
+- 下次打开同一项目时，左侧对话列表会自动加载最近历史任务。
+- 同一个对话中连续提问时，会保留之前的问题和结果，不再被后一个任务覆盖。
+- 新增 `RunHistoryStore`，并增加 GUI 历史相关测试。
 
-## 六、验证情况
+## 五、验证情况
 
-已完成：
+已在当前 conda 环境完成完整测试：
 
-- GUI Python 文件语法解析通过，共检查 12 个 GUI Python 文件。
-- `git diff --check` 通过。
-- 已进行代码结构和 GUI 事件流检查。
+```text
+28 passed in 0.45s
+```
 
-尚未完成：
+覆盖范围包括：
 
-- 当前 Codex shell 没有 `conda`、`pytest` 和 `PySide6`，因此尚未在目标环境执行完整 `pytest`。
-- 尚未在真实 Windows Qt 环境启动 GUI 并完成 1920x1080、笔记本分辨率下的视觉检查。
-- 尚未用真实 API 完成一次从任务输入到文件修改、命令执行、工具结果回传和最终结束的完整录制验证。
+- Agent loop
+- CLI
+- GUI 任务历史
+- OpenAI 兼容客户端
+- Skills
+- Tool Registry
+- Workspace sandbox
 
-建议在目标环境执行：
+也已做过 QML 离屏启动检查，确认 QML 能加载，窗口尺寸配置能读取。
+
+仍建议在真实 Windows 桌面环境中继续做人工验收：
 
 ```powershell
 cd D:\code\se\CodeAgent\codeAgent\agent
 conda activate codeAgent
-python -m pip install -r requirements.txt
 python -m pytest
 code-agent-gui
 ```
 
-## 七、与考核要求的差距
+重点检查：
 
-依据 `推免考核题目学生版.pdf`，项目核心实现已经基本符合要求，剩余差距主要是交付和验收：
+- 新建项目和切换项目是否符合预期。
+- 连续提问后历史消息是否保留。
+- 任务完成后中间过程是否默认折叠。
+- “显示过程 / 隐藏过程”和“查看详情”是否好用。
+- Skill 选择弹窗视觉是否协调。
+- 不同窗口尺寸下是否有文字溢出、遮挡或过大空白。
+
+## 六、当前 Git 工作区状态
+
+当前存在未提交修改，主要分为三类：
+
+### 应考虑提交的项目代码
+
+- `README.md`
+- `agent/src/code_agent/gui/qml/Main.qml`
+- `agent/src/code_agent/gui/qml_bridge.py`
+- `agent/src/code_agent/gui/widgets/skill_dialog.py`
+- `agent/src/code_agent/gui/history.py`
+- `agent/tests/test_gui_history.py`
+- `agent/tests/test_agent_loop.py`
+
+这些修改主要对应 QML GUI、美化、历史持久化、流式输出稳定性和测试修正。
+
+### 演示 workspace 产物
+
+- `examples/demo2/.code-agent/runs/`
+- `examples/demo2/bubble-sort.html`
+- `examples/demo2/bubble_sort.cpp`
+- `examples/demo2/bubble_sort.exe`
+- `examples/demo2/bubble_sort.py`
+- `examples/demo2/index.html`
+- `examples/demo2/quick_sort.py`
+- `examples/demo2/whack-a-mole.html`
+
+这些更像 GUI / Agent 真实运行时生成的 demo 文件。提交前需要决定哪些作为示例保留，哪些应删除或加入忽略规则。
+
+### 需要额外确认
+
+- 如果要展示“任务历史持久化”，可以保留一个干净的 `.code-agent/runs/` 示例；否则最终提交时建议不要把大量运行记录一起提交。
+- `.exe` 文件通常不建议提交，除非明确作为演示材料。
+
+## 七、与考核要求的差距
 
 | 项目 | 当前状态 | 后续工作 |
 |---|---|---|
 | 自研 Agent Core | 已完成 | 准备答辩说明 |
-| 文件读写和命令执行 | 已完成 | 用真实任务完整验证 |
-| Agent loop 和停止条件 | 已完成 | 准备演示和答辩材料 |
-| Git 提交历史 | 已保留 | 最终提交前确认历史和远端地址 |
-| README.txt | 尚未生成 | 从 README.md 整理符合题目要求的 README.txt，并控制篇幅 |
+| 文件读写和命令执行 | 已完成 | 继续用真实任务演示 |
+| Agent loop 和停止条件 | 已完成 | 准备架构说明 |
+| CLI | 已完成 | README.txt 中写清用法 |
+| Skills | 已完成 | 演示中可选用一个 Skill 加分 |
+| Windows GUI | 已完成并持续美化 | 做真实窗口验收和录屏 |
+| 任务历史持久化 | 已完成 | 决定是否展示历史文件 |
+| 测试 | 当前 28 passed | 提交前再跑一次 |
+| Git 提交历史 | 已保留 | 提交前清理工作区并 commit |
+| README.txt | 尚未生成 | 从 README.md / 本文件整理 |
 | Git 仓库地址 | 待最终确认 | 写入 README.txt |
 | 演示视频 | 尚未制作 | 录制不超过 2 分钟、200 MB 的 MP4 |
 | 最终 ZIP | 尚未制作 | 包含 README.txt 和视频，排除 API key、缓存和无关文件 |
-| 完整测试 | 待目标环境执行 | 安装依赖后运行 pytest |
-| GUI 实机验证 | 待完成 | 检查启动、布局、溢出、遮挡和执行流程 |
 | 答辩准备 | 待整理 | 准备架构、工具调用、安全边界和失败恢复说明 |
 
-API key 管理已经按要求采用环境变量或本地 `.env`，但最终提交前仍需再次扫描仓库、README、日志和视频，确保没有泄露真实 key。
+## 八、下一步推荐计划
 
-## 八、提交前推荐顺序
-
-1. 在目标 conda 环境安装依赖并执行完整测试。
-2. 启动 GUI，验证常见分辨率和一次完整 demo 任务。
-3. 确认任务完成后中间执行过程隐藏，最终输出、错误和详情行为正确。
-4. 检查所有未提交文件，确认 GUI 修改和 `PROJECT_GAP_ANALYSIS.md` 是否应提交。
-5. 确认最终 Git 仓库地址。
-6. 创建符合题目要求的 `README.txt`。
-7. 录制 2 分钟以内的真实任务演示视频。
-8. 检查敏感信息、视频格式、视频大小和 ZIP 内容。
-9. 准备答辩讲解：
+1. 决定 GUI 当前样式是否冻结，避免继续大改界面导致新问题。
+2. 在真实 Windows 窗口中完成一次完整 demo：新建项目 -> 输入任务 -> 查看执行过程 -> 查看最终结果 -> 重启后查看历史。
+3. 清理 `examples/demo2` 中不需要提交的 demo 产物，特别是 `.exe` 和临时运行记录。
+4. 再次执行 `python -m pytest`，确认仍然全绿。
+5. 更新 README.md 中 GUI 和任务历史部分，确保与当前实现一致。
+6. 生成符合题目要求的 `README.txt`，控制篇幅并写入 Git 仓库地址。
+7. 录制 2 分钟以内演示视频，重点展示：
 
    ```text
-   用户任务 -> Agent 决策 -> Tool Call -> Tool Result -> 文件/命令结果 -> 完成
+   用户任务 -> Agent Thinking / Activity -> Tool Call -> Tool Result -> Completed -> 历史记录保留
    ```
 
-10. 生成最终 ZIP 并按题目要求提交。
+8. 全仓库扫描敏感信息，确认没有 API key、日志、缓存或个人隐私路径泄露。
+9. 创建最终 ZIP，包含 README.txt 和演示视频，排除无关缓存和大体积临时文件。
+10. 准备答辩话术：强调自研 Agent Core、工具协议、workspace 沙箱、GUI 后台线程和历史持久化。
 
 ## 九、最终判断
 
-当前项目不是核心功能缺失，而是已经进入交付前收尾阶段。Agent Core、工具系统、沙箱、CLI、Skills 和 GUI 主流程均已实现；最重要的剩余事项是完成目标环境验证，并补齐 README.txt、演示视频、最终 ZIP 和答辩材料。
+当前项目核心已经比较完整：Agent Core、工具系统、workspace 安全、CLI、Skills、QML GUI 和任务历史持久化都已实现，并通过现有自动化测试。
+
+后续最有价值的提升点是：稳定 GUI 体验、清理提交内容、补齐交付材料，并把演示视频录得清楚专业。项目现在适合进入下一步计划和最终验收准备。

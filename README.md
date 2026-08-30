@@ -175,6 +175,8 @@ python -m code_agent.gui.app
 
 输入框左上角的 `+` 按钮会打开 Skill 选择窗口，窗口中会列出当前项目工作目录下 `.code-agent/skills/` 里的所有 skill。勾选后发送任务，本次运行会自动加载这些 skill；仍然可以在任务文本里继续使用 `@skill-name`。
 
+每次 GUI 任务结束后，运行记录会保存到当前 workspace 的 `.code-agent/runs/` 目录。记录包含任务标题、workspace、model、运行状态、最终输出、结构化 trace 和界面展示事件；下次打开同一项目时，左侧对话列表会自动加载最近的历史任务。
+
 ## 测试
 
 ```powershell

@@ -20,6 +20,7 @@
             justify-content: center;
             color: #fff;
             user-select: none;
+            overflow: hidden;
         }
         h1 {
             margin-bottom: 15px;
@@ -159,6 +160,18 @@
         .mole.hit .nose, .mole.hit .mouth, .mole.hit .teeth {
             display: none;
         }
+        .mole.golden {
+            background: #ffca28;
+        }
+        .mole.golden::before, .mole.golden::after {
+            background: #5d4037;
+        }
+        .mole.golden .nose {
+            background: #f57f17;
+        }
+        .mole.golden .mouth {
+            border-bottom-color: #f57f17;
+        }
         .score-popup {
             position: absolute;
             color: #ffca28;
@@ -250,6 +263,31 @@
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.2); }
         }
+        .hammer-cursor {
+            position: fixed;
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+            z-index: 9999;
+            font-size: 32px;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            transition: transform 0.05s;
+            display: none;
+        }
+        .hammer-cursor.active {
+            transform: translate(-50%, -50%) rotate(-10deg) scale(0.9);
+        }
+        @media (min-width: 769px) {
+            .hammer-cursor {
+                display: block;
+            }
+            body {
+                cursor: none;
+            }
+            .hole {
+                cursor: none;
+            }
+        }
         @media (max-width: 500px) {
             .game-board {
                 grid-template-columns: repeat(3, 90px);
@@ -322,6 +360,7 @@
     </div>
 
     <div class="combo-display" id="comboDisplay">连击 x2!</div>
+    <div class="hammer-cursor" id="hammer">🔨</div>
 
     <script>
         const holes = document.querySelectorAll('.hole');
@@ -335,6 +374,7 @@
         const finalHighScoreEl = document.getElementById('finalHighScore');
         const restartBtn = document.getElementById('restartBtn');
         const comboDisplay = document.getElementById('comboDisplay');
+        const hammer = document.getElementById('hammer');
 
         let score = 0;
         let timeLeft = 30;
@@ -347,6 +387,16 @@
         let highScore = parseInt(localStorage.getItem('whackamole_highscore')) || 0;
 
         highScoreEl.textContent = highScore;
+
+        // 桌面端锤子光标跟随
+        if (window.innerWidth > 768) {
+            document.addEventListener('mousemove', (e) => {
+                hammer.style.left = e.clientX + 'px';
+                hammer.style.top = e.clientY + 'px';
+            });
+            document.addEventListener('mousedown', () => hammer.classList.add('active'));
+            document.addEventListener('mouseup', () => hammer.classList.remove('active'));
+        }
 
         function randomTime(min, max) {
             return Math.round(Math.random() * (max - min) + min);
@@ -371,10 +421,12 @@
             const time = getDifficultyTime();
             const hole = randomHole();
             const mole = hole.querySelector('.mole');
+            const isGolden = Math.random() < 0.15;
+            mole.classList.toggle('golden', isGolden);
             mole.classList.add('up');
             mole.classList.remove('hit');
             moleTimer = setTimeout(() => {
-                mole.classList.remove('up');
+                mole.classList.remove('up', 'golden');
                 if (gameActive) {
                     combo = 0;
                     peep();
@@ -396,7 +448,8 @@
         function showScorePopup(hole, points) {
             const popup = document.createElement('div');
             popup.className = 'score-popup';
-            popup.textContent = `+${points}`;
+            popup.textContent = (points > 0 ? '+' : '') + points;
+            popup.style.color = points >= 5 ? '#ffca28' : points > 0 ? '#fff' : '#ff5252';
             const rect = hole.getBoundingClientRect();
             popup.style.left = rect.left + rect.width / 2 - 15 + 'px';
             popup.style.top = rect.top + 'px';
@@ -414,7 +467,7 @@
             startBtn.style.display = 'none';
             overlay.classList.add('hidden');
             moles.forEach(m => {
-                m.classList.remove('up', 'hit');
+                m.classList.remove('up', 'hit', 'golden');
             });
             peep();
             countdownTimer = setInterval(() => {
@@ -430,7 +483,7 @@
             gameActive = false;
             clearInterval(countdownTimer);
             clearTimeout(moleTimer);
-            moles.forEach(m => m.classList.remove('up'));
+            moles.forEach(m => m.classList.remove('up', 'golden'));
             
             if (score > highScore) {
                 highScore = score;
@@ -452,8 +505,14 @@
             mole.classList.add('hit');
             mole.classList.remove('up');
             
+            const isGolden = mole.classList.contains('golden');
             combo++;
-            const points = combo >= 5 ? 3 : combo >= 3 ? 2 : 1;
+            let points = 0;
+            if (isGolden) {
+                points = combo >= 3 ? 10 : 5;
+            } else {
+                points = combo >= 5 ? 3 : combo >= 3 ? 2 : 1;
+            }
             score += points;
             scoreEl.textContent = score;
             

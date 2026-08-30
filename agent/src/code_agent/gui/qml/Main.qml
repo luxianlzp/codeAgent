@@ -6,10 +6,10 @@ import CodeAgent 1.0
 ApplicationWindow {
     id: window
     visible: true
-    width: 1280
-    height: 820
-    minimumWidth: 960
-    minimumHeight: 620
+    width: 1040
+    height: 700
+    minimumWidth: 780
+    minimumHeight: 540
     title: "Code Agent"
     color: pageBg
     font.family: "Microsoft YaHei"
@@ -159,9 +159,9 @@ ApplicationWindow {
         spacing: 0
 
         Rectangle {
-            Layout.preferredWidth: 306
-            Layout.minimumWidth: 286
-            Layout.maximumWidth: 326
+            Layout.preferredWidth: 252
+            Layout.minimumWidth: 236
+            Layout.maximumWidth: 272
             Layout.fillHeight: true
             color: sidebarBg
             border.color: line
@@ -447,7 +447,9 @@ ApplicationWindow {
 
                         Rectangle {
                             id: card
-                            width: Math.min(parent.width, row.isUser ? 720 : 920)
+                            width: row.isUser
+                                   ? Math.min(parent.width, Math.max(260, Math.min(520, summaryText.implicitWidth + 44)))
+                                   : Math.min(parent.width, 860)
                             x: row.isUser ? parent.width - width : 0
                             implicitHeight: bodyColumn.implicitHeight + 22
                             radius: 8
@@ -489,13 +491,14 @@ ApplicationWindow {
                                 }
 
                                 Text {
+                                    id: summaryText
                                     Layout.fillWidth: true
                                     text: row.eventSummary
                                     color: fg
                                     wrapMode: Text.Wrap
                                     textFormat: Text.PlainText
                                     font.pixelSize: 14
-                                    font.family: row.eventTerminal ? "Cascadia Code" : "Microsoft YaHei"
+                                    font.family: row.eventTerminal ? "Courier New" : "Microsoft YaHei"
                                 }
 
                                 Rectangle {
@@ -514,7 +517,7 @@ ApplicationWindow {
                                         selectByMouse: true
                                         wrapMode: TextEdit.Wrap
                                         color: row.eventTerminal ? "#e5e7eb" : titleFg
-                                        font.family: "Cascadia Code"
+                                        font.family: "Courier New"
                                         font.pixelSize: 12
                                     }
                                 }

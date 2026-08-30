@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from code_agent.core import Agent, AgentAction, AgentConfig
 from code_agent.core.messages import Message
 from code_agent.skills import Skill
@@ -32,7 +34,12 @@ def test_agent_runs_tool_loop_until_finish(tmp_path) -> None:
     llm = FakeLLM(
         [
             '{"action":"write_file","args":{"path":"hello.txt","content":"hello"}}',
-            '{"action":"run_command","args":{"command":"python -c \\"print(open(\\\'hello.txt\\\').read())\\""}}',
+            json.dumps(
+                {
+                    "action": "run_command",
+                    "args": {"command": 'python -c "print(open(\'hello.txt\').read())"'},
+                }
+            ),
             '{"action":"finish","args":{"message":"Created hello.txt and verified it."}}',
         ]
     )

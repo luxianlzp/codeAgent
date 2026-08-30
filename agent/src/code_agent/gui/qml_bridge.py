@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from code_agent.core import AgentConfig
 from code_agent.core.env import load_dotenv_files
+from code_agent.gui.history import RunHistoryStore
 from code_agent.gui.widgets.chat_panel import _detail_for_event, _event_data, _label_for_kind, _summary_for_event
 from code_agent.gui.worker import AgentWorker
 from code_agent.gui.widgets.skill_dialog import SkillDialog
@@ -41,15 +42,19 @@ class QmlController(QObject):
         self._step = "—"
         self._running = False
         self._events: list[dict] = []
+        self._chat_events: dict[str, list[dict]] = {}
+        self._raw_events_by_chat: dict[str, list[dict]] = {}
         self._projects = [self._make_project(self._default_workspace())]
         self._current_project = self._projects[0]["id"]
         self._current_chat = self._projects[0]["chats"][0]["id"]
-        self._chat_events: dict[str, list[dict]] = {self._current_chat: []}
+        self._chat_events.setdefault(self._current_chat, [])
+        self._raw_events_by_chat.setdefault(self._current_chat, [])
         self._stream_event_indexes: dict[tuple[str, int], int] = {}
         self._pending_stream_updates: set[tuple[str, int]] = set()
         self._stream_flush_scheduled = False
         self._last_tool_call_args: dict[tuple[str, str], dict] = {}
         self._selected_skills: list[str] = []
+        self._active_task = ""
         self._thread: QThread | None = None
         self._worker: AgentWorker | None = None
 
@@ -169,6 +174,7 @@ class QmlController(QObject):
         project["chats"].append(chat)
         self._current_chat = chat["id"]
         self._chat_events[chat["id"]] = []
+        self._raw_events_by_chat[chat["id"]] = []
         self._events = []
         self._clear_stream_indexes_for_chat(self._current_chat)
         self.chatsChanged.emit()
@@ -217,10 +223,8 @@ class QmlController(QObject):
             current["title"] = " ".join(task.split())[:28]
             self.chatsChanged.emit()
             self.currentChatChanged.emit()
-        self._events = []
-        self._chat_events[self._current_chat] = []
+        self._active_task = task
         self._clear_stream_indexes_for_chat(self._current_chat)
-        self._emit_events_reset()
         self._set_running(True)
         self._set_status("Running")
         self._set_step("0")
@@ -255,6 +259,7 @@ class QmlController(QObject):
 
     def _append_event(self, event: dict) -> None:
         kind = str(event.get("kind", "event"))
+        self._raw_events_by_chat.setdefault(self._current_chat, []).append(event)
         if kind == "step":
             data = event.get("data") if isinstance(event.get("data"), dict) else {}
             self._set_step(str(data.get("step", "—")))
@@ -354,6 +359,7 @@ class QmlController(QObject):
         self._flush_stream_updates()
         self._set_status(str(result.get("status", "finished")))
         self._set_step("Complete")
+        self._save_current_run(result)
         self._set_running(False)
 
     def _failed(self, error: str) -> None:
@@ -361,6 +367,7 @@ class QmlController(QObject):
         self._set_status("Error")
         self._set_step("Failed")
         self._append_event({"kind": "error", "message": error, "data": {}})
+        self._save_current_run({"status": "error", "final_message": error})
         self._set_running(False)
 
     def _clear_worker(self) -> None:
@@ -400,6 +407,37 @@ class QmlController(QObject):
         self._pending_stream_updates = {
             key for key in self._pending_stream_updates if key[0] != chat_id
         }
+
+    def _save_current_run(self, result: dict) -> None:
+        if not self._active_task:
+            return
+        project = self._current_project_item()
+        chat = self._current_chat_item()
+        if project is None or chat is None:
+            return
+        final_message = str(result.get("final_message") or result.get("message") or "")
+        try:
+            record = RunHistoryStore(project["path"]).save(
+                title=str(chat.get("title") or self._active_task),
+                task=self._active_task,
+                model=self._model,
+                max_steps=self._max_steps,
+                status=str(result.get("status", "finished")),
+                final_message=final_message,
+                selected_skills=list(self._selected_skills),
+                ui_events=list(self._events),
+                raw_events=list(self._raw_events_by_chat.get(self._current_chat, [])),
+            )
+        except OSError as exc:
+            self._append_event({"kind": "error", "message": f"保存任务历史失败: {exc}", "data": {}})
+            self._active_task = ""
+            return
+        chat["run_id"] = record["id"]
+        chat["run_path"] = record["path"]
+        chat["saved"] = True
+        chat["created_at"] = record.get("created_at", "")
+        self._active_task = ""
+        self.chatsChanged.emit()
 
     @staticmethod
     def _event_to_json(event: dict) -> str:
@@ -509,19 +547,38 @@ class QmlController(QObject):
         nested = data.get("data") if isinstance(data.get("data"), dict) else {}
         return event.get("kind") == "tool_result" and ("stdout" in nested or "stderr" in nested)
 
-    @staticmethod
-    def _make_chat(title: str) -> dict:
-        return {"id": uuid4().hex, "title": title}
+    def _make_chat(self, title: str) -> dict:
+        return {"id": uuid4().hex, "title": title, "saved": False}
 
-    @classmethod
-    def _make_project(cls, path: str) -> dict:
+    def _make_project(self, path: str) -> dict:
         resolved = str(Path(path).resolve())
-        return {
+        project = {
             "id": uuid4().hex,
             "name": Path(resolved).name or resolved,
             "path": resolved,
-            "chats": [cls._make_chat("新对话 1")],
+            "chats": [],
         }
+        self._load_history_for_project(project)
+        if not project["chats"]:
+            chat = self._make_chat("新对话 1")
+            project["chats"].append(chat)
+            self._chat_events[chat["id"]] = []
+            self._raw_events_by_chat[chat["id"]] = []
+        return project
+
+    def _load_history_for_project(self, project: dict) -> None:
+        for record in RunHistoryStore(project["path"]).load(limit=30):
+            chat = {
+                "id": f"run-{record['id']}",
+                "title": record["title"],
+                "saved": True,
+                "run_id": record["id"],
+                "run_path": record["path"],
+                "created_at": record.get("created_at", ""),
+            }
+            project["chats"].append(chat)
+            self._chat_events[chat["id"]] = list(record["ui_events"])
+            self._raw_events_by_chat[chat["id"]] = list(record["raw_events"])
 
     @staticmethod
     def _event_status(event: dict) -> str:
