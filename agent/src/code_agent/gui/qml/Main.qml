@@ -615,6 +615,27 @@ ApplicationWindow {
                                     enabled: !Backend.running
                                     onClicked: Backend.pickSkills()
                                 }
+                                Rectangle {
+                                    visible: Backend.selectedSkills.length > 0
+                                    Layout.maximumWidth: 260
+                                    Layout.preferredWidth: Math.min(skillName.implicitWidth + 20, 260)
+                                    height: 24
+                                    radius: 7
+                                    color: "#eef2ff"
+                                    border.color: "#c7d2fe"
+                                    Text {
+                                        id: skillName
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 9
+                                        anchors.rightMargin: 9
+                                        text: "Skills: " + Backend.selectedSkills.join(", ")
+                                        color: accent
+                                        font.pixelSize: 12
+                                        font.weight: Font.DemiBold
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                    }
+                                }
                                 Text {
                                     text: Backend.currentProjectName
                                     color: muted

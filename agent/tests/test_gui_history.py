@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from code_agent.gui.history import RunHistoryStore
+from code_agent.gui.conversation_context import build_conversation_context
 from code_agent.gui.qml_bridge import QmlController
 
 
@@ -47,3 +48,35 @@ def test_qml_controller_appends_multiple_tasks_in_same_chat() -> None:
     assert "second" in summaries
     assert "first done" in summaries
     assert "second done" in summaries
+
+
+def test_conversation_context_summarizes_completed_turns() -> None:
+    context = build_conversation_context(
+        [
+            {"kind": "user_message", "message": "Fix calculator tests", "data": {}},
+            {"kind": "tool_call", "message": "read_file", "data": {"args": {"path": "calculator.py"}}},
+            {
+                "kind": "tool_result",
+                "message": "ok",
+                "data": {"tool": "read_file", "ok": True, "data": {}},
+            },
+            {"kind": "tool_call", "message": "write_file", "data": {"args": {"path": "calculator.py"}}},
+            {
+                "kind": "tool_result",
+                "message": "ok",
+                "data": {"tool": "write_file", "ok": True, "data": {"path": "calculator.py", "changed": True}},
+            },
+            {"kind": "tool_call", "message": "run_command", "data": {"args": {"command": "python -m pytest"}}},
+            {
+                "kind": "tool_result",
+                "message": "ok",
+                "data": {"tool": "run_command", "ok": True, "data": {"exit_code": 0}},
+            },
+            {"kind": "finish", "message": "Tests now pass", "data": {}},
+        ]
+    )
+
+    assert "Fix calculator tests" in context
+    assert "Tests now pass" in context
+    assert "calculator.py" in context
+    assert "run_command exit_code=0" in context

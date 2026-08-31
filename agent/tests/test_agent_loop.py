@@ -114,6 +114,21 @@ def test_agent_adds_active_skills_to_system_prompt(tmp_path) -> None:
     assert any(event.kind == "skill" and event.message == "testing" for event in result.events)
 
 
+def test_agent_injects_prior_context_before_current_task(tmp_path) -> None:
+    llm = FakeLLM(['{"action":"finish","args":{"message":"done"}}'])
+    workspace = Workspace(tmp_path)
+    config = AgentConfig(max_steps=3)
+    agent = Agent(llm=llm, tools=build_default_registry(workspace, config), config=config)
+
+    result = agent.run("Add divide.", prior_context="Previous task fixed add().")
+
+    assert result.ok is True
+    assert llm.messages[0][1].role == "user"
+    assert "Previous task fixed add()." in llm.messages[0][1].content
+    assert llm.messages[0][2].content == "Add divide."
+    assert any(event.kind == "context" for event in result.events)
+
+
 def test_action_parser_normalizes_missing_args() -> None:
     action = AgentAction.parse('{"action":"list_files"}')
 

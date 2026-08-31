@@ -23,12 +23,20 @@ class AgentWorker(QObject):
     finished = Signal(dict)
     failed = Signal(str)
 
-    def __init__(self, task: str, workspace: str, config: AgentConfig, skill_names: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        task: str,
+        workspace: str,
+        config: AgentConfig,
+        skill_names: list[str] | None = None,
+        prior_context: str | None = None,
+    ) -> None:
         super().__init__()
         self._task = task
         self._workspace = workspace
         self._config = config
         self._skill_names = skill_names or []
+        self._prior_context = prior_context or ""
         self._stop_requested = False
 
     @Slot()
@@ -40,7 +48,12 @@ class AgentWorker(QObject):
             agent = Agent(llm=llm, tools=tools, config=self._config)
             skill_store = SkillStore.default_for_workspace(workspace.root)
             skills = skill_store.load(self._skill_names + parse_skill_references(self._task))
-            result = agent.run(self._task, on_event=self._emit_event, skills=skills)
+            result = agent.run(
+                self._task,
+                on_event=self._emit_event,
+                skills=skills,
+                prior_context=self._prior_context,
+            )
             self.finished.emit(result.to_dict())
         except AgentStopped:
             self.finished.emit({"status": "stopped", "message": "Task stopped by user."})

@@ -31,6 +31,7 @@ class Agent:
         task: str,
         on_event: EventHandler | None = None,
         skills: list[Skill] | None = None,
+        prior_context: str | None = None,
     ) -> AgentRunResult:
         events: list[TraceEvent] = []
 
@@ -45,8 +46,24 @@ class Agent:
             emit(TraceEvent("skill", skill.name, {"path": str(skill.path)}))
         messages = [
             Message("system", self._build_system_prompt(active_skills)),
-            Message("user", task),
         ]
+        if prior_context:
+            emit(
+                TraceEvent(
+                    "context",
+                    "Loaded layered memory context",
+                    {"chars": len(prior_context)},
+                )
+            )
+            messages.append(
+                Message(
+                    "user",
+                    "Layered memory context for this run. "
+                    "Use it only as background for the current task:\n\n"
+                    f"{prior_context}",
+                )
+            )
+        messages.append(Message("user", task))
 
         for step in range(1, self._config.max_steps + 1):
             emit(TraceEvent("step", f"Step {step}", {"step": step}))

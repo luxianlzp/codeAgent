@@ -10,6 +10,8 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from code_agent.core import AgentConfig
 from code_agent.core.env import load_dotenv_files
+from code_agent.core.memory import build_memory_context, load_project_memory
+from code_agent.gui.conversation_context import build_conversation_context
 from code_agent.gui.history import RunHistoryStore
 from code_agent.gui.markdown import render_final_markdown_html
 from code_agent.gui.widgets.chat_panel import _detail_for_event, _event_data, _label_for_kind, _summary_for_event
@@ -231,7 +233,19 @@ class QmlController(QObject):
         self._set_step("0")
         config = AgentConfig.from_env(max_steps=self._max_steps)
         self._thread = QThread(self)
-        self._worker = AgentWorker(task=task, workspace=self.workspace, config=config, skill_names=self._selected_skills)
+        short_term_memory = build_conversation_context(self._raw_events_by_chat.get(self._current_chat, []))
+        long_term_memory = load_project_memory(self.workspace)
+        prior_context = build_memory_context(
+            short_term_memory=short_term_memory,
+            long_term_memory=long_term_memory,
+        )
+        self._worker = AgentWorker(
+            task=task,
+            workspace=self.workspace,
+            config=config,
+            skill_names=self._selected_skills,
+            prior_context=prior_context,
+        )
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.event.connect(self._append_event)
@@ -472,6 +486,8 @@ class QmlController(QObject):
         kind = str(event.get("kind", "event"))
         if kind == "user_message":
             return "Task"
+        if kind == "context":
+            return "Context"
         if kind == "model_request":
             return "Thinking"
         if kind == "model_delta":
@@ -496,6 +512,9 @@ class QmlController(QObject):
 
         if kind == "user_message":
             return message
+        if kind == "context":
+            chars = data.get("chars")
+            return f"Loaded layered memory{f' · {chars} chars' if chars else ''}"
         if kind == "model_request":
             step = data.get("step")
             return f"Analyzing task{f' · step {step}' if step else ''}"

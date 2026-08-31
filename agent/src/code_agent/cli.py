@@ -9,6 +9,7 @@ import sys
 from code_agent.core import Agent, AgentConfig
 from code_agent.core.env import load_dotenv_files
 from code_agent.core.events import TraceEvent
+from code_agent.core.memory import build_memory_context, load_project_memory
 from code_agent.core.result import AgentRunResult
 from code_agent.skills import SkillError, SkillStore, parse_skill_references
 from code_agent.tools import build_default_registry
@@ -67,6 +68,10 @@ def format_event(event: TraceEvent, verbose: bool = False, theme: Theme | None =
         step = event.data.get("step")
         suffix = f" step={step}" if step is not None else ""
         return f"{theme.paint('[model]', 'cyan')} calling model...{theme.paint(suffix, 'dim')}"
+    if event.kind == "context":
+        chars = event.data.get("chars")
+        suffix = f" ({chars} chars)" if chars else ""
+        return f"{theme.paint('[memory]', 'yellow')} loaded layered memory context{theme.paint(suffix, 'dim')}"
     if event.kind == "model_delta":
         return None
     if event.kind == "model_response" and not verbose:
@@ -224,12 +229,13 @@ def run_task(
     verbose: bool,
     trace_file: str | None,
     theme: Theme,
+    prior_context: str | None = None,
 ) -> bool:
     on_event = None if json_trace else lambda event: print_event(event, verbose, theme)
     try:
         skill_names = requested_skills + parse_skill_references(task)
         skills = skill_store.load(skill_names)
-        result = agent.run(task, on_event=on_event, skills=skills)
+        result = agent.run(task, on_event=on_event, skills=skills, prior_context=prior_context)
     except RuntimeError as exc:
         print(f"Runtime error: {exc}", file=sys.stderr)
         return False
@@ -301,16 +307,46 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{theme.paint('Interactive mode.', 'bold')} Type a task, or type :q to quit.")
         ok = True
         if task:
-            ok = run_task(agent, task, skill_store, args.skill, args.json_trace, args.verbose, args.trace_file, theme)
+            ok = run_task(
+                agent,
+                task,
+                skill_store,
+                args.skill,
+                args.json_trace,
+                args.verbose,
+                args.trace_file,
+                theme,
+                build_memory_context(long_term_memory=load_project_memory(workspace.root)),
+            )
         while True:
             next_task = input("\nTask> ").strip()
             if next_task in {":q", ":quit", "exit", "quit"}:
                 return 0 if ok else 1
             if not next_task:
                 continue
-            ok = run_task(agent, next_task, skill_store, args.skill, args.json_trace, args.verbose, args.trace_file, theme) and ok
+            ok = run_task(
+                agent,
+                next_task,
+                skill_store,
+                args.skill,
+                args.json_trace,
+                args.verbose,
+                args.trace_file,
+                theme,
+                build_memory_context(long_term_memory=load_project_memory(workspace.root)),
+            ) and ok
 
-    return 0 if run_task(agent, task, skill_store, args.skill, args.json_trace, args.verbose, args.trace_file, theme) else 1
+    return 0 if run_task(
+        agent,
+        task,
+        skill_store,
+        args.skill,
+        args.json_trace,
+        args.verbose,
+        args.trace_file,
+        theme,
+        build_memory_context(long_term_memory=load_project_memory(workspace.root)),
+    ) else 1
 
 
 if __name__ == "__main__":

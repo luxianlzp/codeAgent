@@ -177,6 +177,24 @@ python -m code_agent.gui.app
 
 每次 GUI 任务结束后，运行记录会保存到当前 workspace 的 `.code-agent/runs/` 目录。记录包含任务标题、workspace、model、运行状态、最终输出、结构化 trace 和界面展示事件；下次打开同一项目时，左侧对话列表会自动加载最近的历史任务。
 
+## 记忆分层
+
+项目实现了轻量级上下文记忆机制：
+
+- 工作记忆：当前 agent loop 内的任务、模型 action 和工具结果会持续保留，用于本次运行的连续决策。
+- 短期记忆：GUI 同一对话里的前几轮任务会被压缩成摘要，下一次发送任务时自动注入给模型，避免丢失“继续”“再加一个”等上下文。
+- 长期记忆：如果 workspace 下存在 `.code-agent/memory.md`，CLI 和 GUI 会自动读取其中的项目级约定、常用命令或注意事项，并作为长期项目记忆注入给模型。
+
+长期记忆示例：
+
+```markdown
+# Project Memory
+
+- Preferred test command: python -m pytest
+- Main source directory: agent/src/code_agent
+- Do not commit .env files or generated .exe files
+```
+
 ## 测试
 
 ```powershell
