@@ -1,1 +1,0 @@
-Preferred test command: python -m pytest
