@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from code_agent.gui.history import RunHistoryStore
 from code_agent.gui.conversation_context import build_conversation_context
-from code_agent.gui.qml_bridge import QmlController
 
 
 def test_run_history_store_saves_and_loads_records(tmp_path) -> None:
@@ -32,6 +33,9 @@ def test_run_history_store_saves_and_loads_records(tmp_path) -> None:
 
 
 def test_qml_controller_appends_multiple_tasks_in_same_chat() -> None:
+    pytest.importorskip("PySide6")
+    from code_agent.gui.qml_bridge import QmlController
+
     controller = QmlController()
 
     controller._active_task = "first"

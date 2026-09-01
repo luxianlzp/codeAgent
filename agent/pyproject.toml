@@ -28,3 +28,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "code_agent.gui" = ["qml/*.qml"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "--basetemp=../tmp/pytest -p no:cacheprovider"
