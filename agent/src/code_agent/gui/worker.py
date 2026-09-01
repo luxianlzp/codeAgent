@@ -44,7 +44,11 @@ class AgentWorker(QObject):
         try:
             workspace = Workspace(Path(self._workspace))
             tools = build_default_registry(workspace, self._config)
-            llm = OpenAICompatibleClient(model=self._config.model, base_url=self._config.base_url)
+            llm = OpenAICompatibleClient(
+                model=self._config.model,
+                base_url=self._config.base_url,
+                timeout_seconds=self._config.model_timeout_seconds,
+            )
             agent = Agent(llm=llm, tools=tools, config=self._config)
             skill_store = SkillStore.default_for_workspace(workspace.root)
             skills = skill_store.load(self._skill_names + parse_skill_references(self._task))

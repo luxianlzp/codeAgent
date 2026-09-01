@@ -8,7 +8,7 @@ from code_agent.core.messages import Message
 
 
 class OpenAICompatibleClient:
-    def __init__(self, model: str, base_url: str) -> None:
+    def __init__(self, model: str, base_url: str, timeout_seconds: int = 60) -> None:
         try:
             from openai import OpenAI
         except ModuleNotFoundError as exc:
@@ -22,7 +22,7 @@ class OpenAICompatibleClient:
         if api_key == "your_api_key_here" or "your_api" in api_key:
             raise RuntimeError("OPENAI_API_KEY still contains the example placeholder value.")
 
-        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout_seconds)
         self._model = model
 
     def complete(self, messages: list[Message]) -> str:

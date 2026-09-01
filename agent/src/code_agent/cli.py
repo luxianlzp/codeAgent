@@ -296,7 +296,11 @@ def main(argv: list[str] | None = None) -> int:
     from code_agent.llm.openai_client import OpenAICompatibleClient
 
     try:
-        llm = OpenAICompatibleClient(model=config.model, base_url=config.base_url)
+        llm = OpenAICompatibleClient(
+            model=config.model,
+            base_url=config.base_url,
+            timeout_seconds=config.model_timeout_seconds,
+        )
     except RuntimeError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         return 2
