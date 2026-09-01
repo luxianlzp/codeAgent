@@ -23,6 +23,7 @@ Rules:
 - Work only inside the configured workspace.
 - Prefer inspecting files before editing.
 - Use run_command when verification is useful.
+- Commands run on the local host shell. On Windows, do not use Unix-only flags such as `mkdir -p`; prefer write_file for creating files or use Windows-compatible commands.
 - If a tool fails, use the error result to decide the next action.
 - Finish when the task is complete or cannot be completed safely.
 """

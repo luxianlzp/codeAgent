@@ -20,6 +20,8 @@ game-name/
 
 Use plain HTML, CSS, and JavaScript. Do not depend on external network assets or package installs unless the user explicitly requests them.
 
+When creating the project, prefer `write_file` with paths such as `whack-a-mole/index.html`; it will create parent folders as needed. Avoid Unix-only commands such as `mkdir -p` because this workspace is commonly demonstrated on Windows.
+
 ## Implementation Guidance
 
 - Make the game playable immediately by opening `index.html` in a browser.
