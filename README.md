@@ -1,36 +1,87 @@
 # Code Agent
 
-一个自研的简化版 coding agent。项目提供命令行和 Windows 桌面客户端两种入口，二者共用同一套 agent 核心逻辑。
+Code Agent 是一个自研的简化版 coding agent。它可以接收用户的自然语言编程任务，调用大语言模型进行下一步决策，并通过本地工具读取文件、写入文件、执行命令，再把工具结果回传给模型继续推理，直到任务完成或达到停止条件。
 
-## 当前能力
+项目提供两种入口：
 
-- 管理 agent 对话上下文。
-- 调用 OpenAI 兼容模型 API。
-- 解析模型返回的 JSON action。
-- 执行本地工具：
-  - `list_files`
-  - `read_file`
-  - `write_file`
-  - `run_command`
-- 将工具结果回传给模型，继续下一轮决策。
-- 支持最大轮数和命令超时。
-- 限制文件访问在指定 workspace 内。
-- 输出结构化 trace，便于 CLI 展示和桌面客户端复用。
-- CLI 会边运行边输出事件，不需要等整个任务结束后才看到结果。
+- CLI：适合快速运行、调试和保存完整 trace。
+- Windows 桌面 GUI：适合演示 agent 执行过程、查看工具调用、管理项目和对话历史。
+
+CLI 和 GUI 共用同一套 Agent Core。GUI 只负责界面展示、用户交互、后台线程调度和历史加载，不包含模型决策逻辑，也不直接实现文件或命令工具。
+
+## 项目特色
+
+- 自研 agent loop：没有使用 LangChain、LlamaIndex、AutoGen、CrewAI、OpenAI Agents SDK 等现成 agent 框架。
+- 本地工具执行：支持列目录、读文件、写文件和执行本地命令，模型只负责产生 action，实际操作由本地工具完成。
+- 结构化工具协议：模型必须返回 JSON action，程序解析后调用工具，并把 observation 再交给模型。
+- Workspace 沙箱：文件读写限制在用户选择的 workspace 内，避免访问项目外文件。
+- 危险命令拦截：对删除、格式化、关机、破坏性 git 命令等进行基础拦截。
+- CLI/GUI 双入口：同一个 Agent Core 可以在命令行和桌面客户端中复用。
+- 实时 trace：每一步模型请求、action、工具调用、工具结果和最终回答都会生成结构化事件。
+- 任务历史持久化：GUI 任务结束后自动保存运行记录，下次打开同一项目可以恢复历史对话。
+- Skills：支持 workspace 级可复用指令，适合把测试偏好、代码审查习惯等注入 agent。
+- 记忆分层：实现工作记忆、短期记忆和长期项目记忆，支持连续任务上下文。
+- Markdown 最终结果：GUI 的完成结果支持 Markdown 渲染和代码块高亮，便于阅读。
+
+## 目录结构
+
+```text
+codeAgent/
+├─ agent/
+│  ├─ src/code_agent/
+│  │  ├─ core/       # Agent loop、配置、事件、记忆和运行结果
+│  │  ├─ llm/        # OpenAI 兼容模型客户端
+│  │  ├─ tools/      # 工具基类、注册表、文件工具、命令工具
+│  │  ├─ workspace/  # workspace 路径沙箱
+│  │  ├─ skills/     # Skill 发现、加载和引用解析
+│  │  └─ gui/        # PySide6 / QML 桌面客户端
+│  ├─ tests/         # 自动化测试
+│  ├─ pyproject.toml
+│  └─ requirements.txt
+├─ examples/         # 示例 workspace
+├─ README.md
+├─ PLAN.md
+├─ PROJECT_STATUS.md
+└─ .env.example
+```
+
+## 核心原理
+
+Agent 的主循环位于 `agent/src/code_agent/core/agent.py`，流程如下：
+
+```text
+1. 组装 system prompt、用户任务、skills 和记忆上下文
+2. 调用 OpenAI 兼容模型接口
+3. 解析模型返回的 JSON action
+4. 如果 action 是 finish，则结束任务
+5. 如果 action 是工具调用，则执行本地工具
+6. 将工具结果作为 observation 加入上下文
+7. 进入下一轮，直到完成或达到 max_steps
+```
+
+模型输出示例：
+
+```json
+{"action":"read_file","args":{"path":"calculator.py"}}
+```
+
+程序解析后会在当前 workspace 内读取文件，再把读取结果回传给模型。模型随后可以继续决定写文件、运行测试，或用 `finish` 给出最终结果。
 
 ## 安装
 
-在你自己的 conda 环境中安装依赖：
+推荐在 conda 环境中安装依赖：
 
 ```powershell
 cd agent
 python -m pip install -r requirements.txt
+python -m pip install -e . --no-build-isolation
 ```
 
-如果要使用 `code-agent` 和 `code-agent-gui` 这两个命令，还需要在当前 conda 环境中安装本地包。每次新增或修改命令入口后，都建议重新执行一次：
+安装本地包后会提供两个命令：
 
-```powershell
-python -m pip install -e . --no-build-isolation
+```text
+code-agent
+code-agent-gui
 ```
 
 ## 配置
@@ -41,7 +92,7 @@ python -m pip install -e . --no-build-isolation
 Copy-Item ../.env.example .env
 ```
 
-`.env` 至少需要：
+`.env` 至少包含：
 
 ```bash
 OPENAI_API_KEY=sk-your-real-api-key
@@ -49,141 +100,127 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-请把 `OPENAI_API_KEY` 改成真实 key，不能保留 `.env.example` 里的占位值。CLI 和桌面客户端会自动读取项目根目录、`agent` 目录或当前运行目录下的 `.env` 文件。已经存在的系统环境变量优先级更高，不会被 `.env` 覆盖。不要把真实 API key 提交到仓库。
+CLI 和 GUI 会自动读取项目根目录、`agent` 目录或当前运行目录下的 `.env` 文件。系统环境变量优先级更高，不会被 `.env` 覆盖。真实 API key 不应提交到仓库，也不应出现在 README、视频或运行日志中。
 
 ## 运行 CLI
 
-推荐先在当前 conda 环境中安装本地包：
+单次任务：
 
 ```powershell
 cd agent
-python -m pip install -e . --no-build-isolation
 code-agent --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
 ```
 
-如果想连续输入多个任务，使用交互模式：
+交互模式：
 
 ```powershell
 code-agent --interactive --workspace ../examples/demo_workspace
 ```
 
-进入后直接输入任务即可，输入 `:q` 退出。每个任务会重新启动一次 agent loop，但会复用同一个 workspace。
+进入后直接输入任务，输入 `:q`、`:quit`、`exit` 或 `quit` 退出。
 
-如果需要查看完整 JSON trace：
-
-```powershell
-code-agent --json-trace --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
-```
-
-如果想保存完整运行日志：
+保存完整运行 trace：
 
 ```powershell
-code-agent --trace-file traces/run.json --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
+code-agent --trace-file traces/run.json --workspace ../examples/demo_workspace "Fix calculator.py and run tests."
 ```
 
-默认输出会隐藏较长的模型原文和工具细节。如果需要展开 diff、命令输出等完整信息：
+查看完整 JSON trace：
 
 ```powershell
-code-agent --verbose --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
+code-agent --json-trace --workspace ../examples/demo_workspace "List files and summarize the project."
 ```
 
-默认的人类可读输出会按事件类型着色。如果终端不支持颜色，或需要录制纯文本输出：
+展开模型响应、工具参数、diff 和命令输出：
 
 ```powershell
-code-agent --no-color --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
+code-agent --verbose --workspace ../examples/demo_workspace "Review calculator.py and run focused tests."
 ```
 
-如果不想安装本地包，也可以临时设置 `PYTHONPATH` 后运行模块：
+不安装本地包时，也可以临时设置 `PYTHONPATH`：
 
 ```powershell
 $env:PYTHONPATH="src"
-python -m code_agent.cli --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
+python -m code_agent.cli --workspace ../examples/demo_workspace "Create hello.py."
 ```
 
-macOS / Linux shell 对应写法：
+## 运行 Windows GUI
 
-```bash
-PYTHONPATH=src python -m code_agent.cli --workspace ../examples/demo_workspace "Create a hello.py file that prints hello, then run it."
-```
-
-## Skills
-
-Skill 是一段可复用的 Markdown 指令，用来给 agent 补充特定场景的工作方式。默认 skill 目录位于当前 workspace 下：
-
-```text
-.code-agent/skills/
-```
-
-可以创建一个新 skill 模板：
-
-```powershell
-code-agent --workspace ../examples/demo_workspace --add-skill python-review
-```
-
-生成的文件路径类似：
-
-```text
-../examples/demo_workspace/.code-agent/skills/python-review/SKILL.md
-```
-
-也可以手动添加 skill。支持两种形式：
-
-```text
-.code-agent/skills/python-review/SKILL.md
-.code-agent/skills/python-review.md
-```
-
-查看当前 workspace 可用的 skill：
-
-```powershell
-code-agent --workspace ../examples/demo_workspace --list-skills
-```
-
-运行任务时可以显式指定 skill：
-
-```powershell
-code-agent --workspace ../examples/demo_workspace --skill python-review "Review calculator.py and run focused tests."
-```
-
-也可以在任务文本里用 `@skill-name` 指定。CLI 和桌面客户端都会识别这种写法：
-
-```powershell
-code-agent --workspace ../examples/demo_workspace "Use @python-review to review calculator.py."
-```
-
-当前 skill 只作为模型指令注入，不会执行任意 Python 代码，也不会绕过 workspace 文件访问限制和工具规则。
-
-## 运行 Windows 桌面客户端
-
-安装依赖并安装本地包后运行：
+安装依赖和本地包后：
 
 ```powershell
 cd agent
-python -m pip install -r requirements.txt
-python -m pip install -e . --no-build-isolation
 code-agent-gui
 ```
 
-如果没有安装本地包，也可以临时通过模块方式启动：
+或使用模块方式启动：
 
 ```powershell
 $env:PYTHONPATH="src"
 python -m code_agent.gui.app
 ```
 
-桌面客户端使用 PySide6 Qt Quick/QML 构建界面，支持新建项目、选择项目文件夹，并在项目下创建多个对话。输入任务后点击发送按钮，agent 会在后台线程执行，界面不会冻结；主区域以对话流形式实时展示用户任务、模型请求、action、工具调用和最终结果。工具参数、命令输出、文件 diff 或错误详情默认隐藏，点击消息里的“查看详情”才会展开。
+GUI 支持：
 
-输入框左上角的 `+` 按钮会打开 Skill 选择窗口，窗口中会列出当前项目工作目录下 `.code-agent/skills/` 里的所有 skill。勾选后发送任务，本次运行会自动加载这些 skill；仍然可以在任务文本里继续使用 `@skill-name`。
+- 新建项目并选择 workspace。
+- 在项目下创建多个对话。
+- 选择 Skills，并在输入框下方显示当前选中的 Skill。
+- 设置最大 agent 步数。
+- 实时查看用户任务、模型请求、agent action、工具调用、工具结果和最终回答。
+- 任务完成后默认折叠中间过程，只保留用户任务和最终结果。
+- 点击“显示过程”复盘完整执行过程。
+- 点击“查看详情”展开工具参数、命令输出、文件 diff 或错误详情。
+- 使用后台 `QThread + AgentWorker` 运行 agent，避免 GUI 主线程卡顿。
+- 保存 GUI 任务历史，并在下次打开同一 workspace 时自动加载。
 
-每次 GUI 任务结束后，运行记录会保存到当前 workspace 的 `.code-agent/runs/` 目录。记录包含任务标题、workspace、model、运行状态、最终输出、结构化 trace 和界面展示事件；下次打开同一项目时，左侧对话列表会自动加载最近的历史任务。
+## Skills
+
+Skill 是 workspace 下的一段可复用 Markdown 指令，用于给 agent 补充某类任务的工作偏好。默认目录：
+
+```text
+.code-agent/skills/
+```
+
+创建 Skill 模板：
+
+```powershell
+code-agent --workspace ../examples/demo_workspace --add-skill python-review
+```
+
+支持两种文件形式：
+
+```text
+.code-agent/skills/python-review/SKILL.md
+.code-agent/skills/python-review.md
+```
+
+查看可用 Skills：
+
+```powershell
+code-agent --workspace ../examples/demo_workspace --list-skills
+```
+
+运行时显式启用：
+
+```powershell
+code-agent --workspace ../examples/demo_workspace --skill python-review "Review calculator.py and run tests."
+```
+
+也可以在任务文本里引用：
+
+```powershell
+code-agent --workspace ../examples/demo_workspace "Use @python-review to review calculator.py."
+```
+
+Skill 只作为模型提示词注入，不会执行任意 Python 代码，也不会绕过 workspace 沙箱和工具规则。
 
 ## 记忆分层
 
 项目实现了轻量级上下文记忆机制：
 
-- 工作记忆：当前 agent loop 内的任务、模型 action 和工具结果会持续保留，用于本次运行的连续决策。
-- 短期记忆：GUI 同一对话里的前几轮任务会被压缩成摘要，下一次发送任务时自动注入给模型，避免丢失“继续”“再加一个”等上下文。
-- 长期记忆：如果 workspace 下存在 `.code-agent/memory.md`，CLI 和 GUI 会自动读取其中的项目级约定、常用命令或注意事项，并作为长期项目记忆注入给模型。
+- 工作记忆：当前 agent loop 内的用户任务、模型 action 和工具 observation 会保存在本次运行上下文中，支持模型连续决策。
+- 短期记忆：GUI 同一对话里的前几轮任务会从 `raw_events` 压缩成摘要，包含任务、最终结果、工具调用和相关文件。用户继续提问时，这段摘要会注入给模型。
+- 长期记忆：如果 workspace 下存在 `.code-agent/memory.md`，CLI 和 GUI 会读取其中的项目级约定、常用命令、目录说明或注意事项，并作为长期项目记忆注入。
 
 长期记忆示例：
 
@@ -192,20 +229,69 @@ python -m code_agent.gui.app
 
 - Preferred test command: python -m pytest
 - Main source directory: agent/src/code_agent
+- GUI uses PySide6 and QML
 - Do not commit .env files or generated .exe files
 ```
 
+这样可以支持同一对话中的连续任务，例如用户先让 agent 修复测试，再追问“再加一个 divide 函数”，模型能够获得上一轮任务和相关文件背景，同时避免把完整日志无限追加到上下文中。
+
+## 工具系统
+
+默认工具包括：
+
+- `list_files`：列出 workspace 内文件和目录。
+- `read_file`：读取 workspace 内 UTF-8 文本文件。
+- `write_file`：写入 workspace 内 UTF-8 文本文件，并生成 unified diff。
+- `run_command`：在 workspace 内执行本地 shell 命令，捕获 stdout、stderr 和 exit code。
+- `finish`：模型主动结束任务并返回最终说明。
+
+每个工具返回统一的 `ToolResult`，包含成功状态、用户可读消息和结构化数据。Agent 不直接操作文件系统或命令行，而是通过 `ToolRegistry` 分发工具调用。
+
+## 安全限制
+
+- 文件路径必须通过 `Workspace.resolve()` 校验，最终路径必须位于当前 workspace 内。
+- `run_command` 的工作目录固定为当前 workspace。
+- 命令执行有超时时间，避免任务无限阻塞。
+- 阻止明显危险的命令，例如 `rm`、`del`、`erase`、`rmdir`、`format`、`shutdown`、`reboot`、`diskpart`、`git reset`、`git clean`、PowerShell `Remove-Item` 等。
+- API key 只通过环境变量或本地未提交的 `.env` 文件提供。
+- Skills 和 memory 都只是提示词内容，不拥有绕过工具和沙箱的权限。
+
+## Trace 与历史
+
+Agent 运行时会产生结构化 `TraceEvent`，常见事件包括：
+
+- `user_message`
+- `context`
+- `skill`
+- `model_request`
+- `model_delta`
+- `model_response`
+- `action`
+- `tool_call`
+- `tool_result`
+- `finish`
+- `error`
+
+CLI 可以直接打印这些事件，也可以通过 `--json-trace` 或 `--trace-file` 保存完整 JSON。GUI 会把事件转换为对话流卡片，并在任务结束后保存到 workspace 的 `.code-agent/runs/` 目录。
+
 ## 测试
+
+运行自动化测试：
 
 ```powershell
 cd agent
 python -m pytest
 ```
 
-## 安全与日志
+当前测试覆盖：
 
-- `run_command` 会拦截明显危险的命令，例如 `rm`、`del`、`format`、`shutdown`、`git reset`、`git clean`、PowerShell `Remove-Item` 等。
-- `write_file` 会在 trace 中记录 unified diff，便于 CLI 和桌面客户端展示文件变更。
-- `--trace-file` 会保存完整结构化 JSON，适合调试和录制视频。
-- `--verbose` 会显示完整模型响应和工具输出；默认模式只显示摘要。
-- `--no-color` 可以关闭彩色输出；`--json-trace` 始终输出纯 JSON。
+- Agent loop 和停止条件。
+- 模型 action 解析。
+- 工具注册和调用。
+- 文件读写与 workspace 沙箱。
+- 命令执行基础行为。
+- CLI 输出和 trace。
+- Skills 加载与引用。
+- GUI 历史持久化。
+- Markdown 最终结果渲染。
+- 记忆上下文构造。
