@@ -1,1 +1,0 @@
-在当前工作目录中创建一个 Python 程序 calculator.py。程序需要实现 add(a, b)、subtract(a, b)、multiply(a, b) 三个函数。然后创建 test_calculator.py，编写简单测试验证这三个函数。最后运行测试；如果测试失败，检查原因并修改代码，直到测试通过。
